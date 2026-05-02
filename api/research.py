@@ -140,6 +140,76 @@ async def list_my_tags(request: Request):
     return sorted(all_tags)
 
 
+@router.get("/find-pdf", summary="募集要項PDFのURLを自動検索")
+@limiter.limit("20/minute")
+async def find_pdf(
+    university: str = Query(..., min_length=1, max_length=100),
+    faculty: str = Query(default="", max_length=100),
+    admission_method: str = Query(default="", max_length=100),
+    request: Request = None,
+):
+    require_user(request)
+    import asyncio
+
+    AO_VARIANTS = [
+        "総合型選抜",
+        "AO入試",
+        "自己推薦入試",
+        "特色入試",
+        "学校推薦型選抜",
+        "自己推薦型選抜",
+        "独自選抜",
+    ]
+
+    method = admission_method.strip()
+    fac = faculty.strip()
+
+    # 検索クエリを複数パターンで生成
+    queries = []
+    if method:
+        queries.append(f"{university} {fac} {method} 募集要項 filetype:pdf OR site:ac.jp")
+        queries.append(f"{university} {fac} {method} 募集要項 PDF")
+    for variant in AO_VARIANTS:
+        queries.append(f"{university} {fac} {variant} 募集要項 filetype:pdf OR site:ac.jp")
+        if len(queries) >= 6:
+            break
+    queries.append(f"{university} {fac} 総合型選抜 募集要項 PDF 2025 2026")
+
+    try:
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS
+
+        found_url = None
+        with DDGS(timeout=10) as ddgs:
+            for q in queries:
+                try:
+                    results = list(ddgs.text(q, max_results=5))
+                    for r in results:
+                        url = r.get("href", "")
+                        # PDF URLを優先（.pdfで終わるもの）
+                        if url.lower().endswith(".pdf"):
+                            found_url = url
+                            break
+                        # ac.jpドメインのPDFっぽいURL
+                        if "ac.jp" in url and "pdf" in url.lower():
+                            found_url = url
+                            break
+                    if found_url:
+                        break
+                    # PDF直URLが見つからなければ次のクエリへ
+                    await asyncio.sleep(0.3)
+                except Exception:
+                    continue
+
+        if found_url:
+            return {"found": True, "url": found_url}
+        return {"found": False, "url": ""}
+    except Exception as e:
+        return {"found": False, "url": "", "error": str(e)}
+
+
 @router.get("/research/{request_id}", summary="調査の詳細（進捗 + 結果）")
 async def get_research(request_id: str, request: Request):
     user = require_user(request)

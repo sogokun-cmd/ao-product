@@ -167,7 +167,10 @@
           <button type="button" class="pdf-toggle-btn" id="pdf-tab-file" onclick="setPdfTab('file')">ファイルをアップロード</button>
         </div>
         <div id="pdf-url-area">
-          <input id="f-pdf" placeholder="https://... （空欄でも自動検索します）" maxlength="500">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="f-pdf" placeholder="https://... （空欄でも自動検索します）" maxlength="500" style="flex:1">
+            <button type="button" id="btn-find-pdf" onclick="findPdfUrl()" style="white-space:nowrap;padding:6px 12px;border:1.5px solid var(--brand-blue);border-radius:8px;background:#fff;color:var(--brand-blue);font-size:.78rem;font-weight:600;cursor:pointer">🔍 自動検索</button>
+          </div>
           <div class="hint" style="font-size:.76rem;margin-top:4px;color:var(--ink-soft)">
             入力しなくても公式PDFを自動で探します。PDFが見つからない・まだ公開されていない場合は空欄のままで大丈夫です。
           </div>
@@ -306,6 +309,39 @@ function _stopEtaDisplay() {
   const m = location.pathname.match(/\/app\/research\/([\w-]+)/);
   if (m) loadRequest(m[1]);
 })();
+
+// PDF URL 自動検索
+async function findPdfUrl() {
+  const university = document.getElementById('f-univ').value.trim();
+  const faculty    = document.getElementById('f-faculty').value.trim();
+  const method     = document.getElementById('f-method').value.trim();
+  if (!university) { alert('大学名を入力してください'); return; }
+
+  const btn = document.getElementById('btn-find-pdf');
+  btn.textContent = '検索中...';
+  btn.disabled = true;
+
+  try {
+    const params = new URLSearchParams({ university, faculty, admission_method: method });
+    const r = await fetch('/api/find-pdf?' + params);
+    const d = await r.json();
+    if (d.found && d.url) {
+      document.getElementById('f-pdf').value = d.url;
+      btn.textContent = '✓ 見つかりました';
+      btn.style.color = 'var(--green)';
+      btn.style.borderColor = 'var(--green)';
+      setTimeout(() => { btn.textContent = '🔍 自動検索'; btn.style.color = ''; btn.style.borderColor = ''; btn.disabled = false; }, 3000);
+    } else {
+      btn.textContent = '見つかりませんでした';
+      btn.style.color = 'var(--muted)';
+      btn.style.borderColor = 'var(--border)';
+      setTimeout(() => { btn.textContent = '🔍 自動検索'; btn.style.color = ''; btn.style.borderColor = ''; btn.disabled = false; }, 3000);
+    }
+  } catch {
+    btn.textContent = '🔍 自動検索';
+    btn.disabled = false;
+  }
+}
 
 // PDF タブ切り替え
 function setPdfTab(tab) {
