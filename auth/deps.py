@@ -233,6 +233,24 @@ def check_quota(user_id: int, action: str = "research") -> None:
             (user_id, action),
         ).fetchone()
         count = int(row["c"])
+
+        # 同一登録IPからのアカウント横断利用チェック（IP上限 = quota * 2）
+        ip_row = db.execute("SELECT signup_ip FROM users WHERE id=?", (user_id,)).fetchone()
+        signup_ip = (ip_row["signup_ip"] if ip_row else "") or ""
+        if signup_ip and signup_ip != "unknown":
+            ip_count_row = db.execute(
+                """SELECT COUNT(*) AS c FROM usage_logs ul
+                   JOIN users u ON u.id = ul.user_id
+                   WHERE u.signup_ip = ? AND ul.action = ?""",
+                (signup_ip, action),
+            ).fetchone()
+            ip_total = int(ip_count_row["c"])
+            ip_limit = quota * 2  # 同一IPから最大6回（2アカウント分）
+            if ip_total >= ip_limit:
+                raise HTTPException(
+                    status_code=429,
+                    detail="同一環境からの無料枠が上限に達しました。プランに登録してください。",
+                )
     finally:
         db.close()
     if count >= quota:

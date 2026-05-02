@@ -40,10 +40,26 @@ def create_token(user_id: int, email: str, plan: str, name: str = "") -> str:
 
 # ── Register / Login ──────────────────────────────────────────
 
-def register_user(name: str, email: str, password: str) -> dict:
+_DISPOSABLE_DOMAINS = {
+    "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com",
+    "throwam.com", "yopmail.com", "sharklasers.com", "guerrillamailblock.com",
+    "grr.la", "guerrillamail.info", "guerrillamail.biz", "guerrillamail.de",
+    "guerrillamail.net", "guerrillamail.org", "spam4.me", "trashmail.com",
+    "trashmail.me", "trashmail.net", "dispostable.com", "spamgourmet.com",
+    "mailnull.com", "maildrop.cc", "mailnesia.com", "fakeinbox.com",
+    "tempinbox.com", "tempr.email", "discard.email", "spamex.com",
+    "mailexpire.com", "spamfree24.org", "spammotel.com", "spamslicer.com",
+    "spamspot.com", "spamthisplease.com", "tempemail.net", "throwam.com",
+}
+
+
+def register_user(name: str, email: str, password: str, signup_ip: str = "") -> dict:
     from database import get_db
     from auth.deps import ensure_subscription
     from core.email import generate_verification_token, send_verification_email
+    domain = email.split("@")[-1].lower() if "@" in email else ""
+    if domain in _DISPOSABLE_DOMAINS:
+        raise ValueError("使い捨てメールアドレスは使用できません")
     if len(password) < 10:
         raise ValueError("パスワードは10文字以上で設定してください")
     if not any(c.isupper() for c in password):
@@ -60,9 +76,9 @@ def register_user(name: str, email: str, password: str) -> dict:
         expires = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
         cur = db.execute(
             """INSERT INTO users (name, email, password_hash, email_verified,
-               verification_token, verification_expires_at)
-               VALUES (?, ?, ?, 0, ?, ?)""",
-            (name, email, hash_password(password), token, expires),
+               verification_token, verification_expires_at, signup_ip)
+               VALUES (?, ?, ?, 0, ?, ?, ?)""",
+            (name, email, hash_password(password), token, expires, signup_ip),
         )
         db.commit()
         user_id = cur.lastrowid

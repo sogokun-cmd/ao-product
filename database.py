@@ -311,6 +311,7 @@ def init_db() -> None:
         "ALTER TABLE research_requests ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'",
         "ALTER TABLE research_requests ADD COLUMN pdf_text TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE users ADD COLUMN credit_balance INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN signup_ip TEXT NOT NULL DEFAULT ''",
     ]:
         try:
             conn.execute(stmt)

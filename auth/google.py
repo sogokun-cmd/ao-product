@@ -49,7 +49,7 @@ async def get_google_user_info(access_token: str) -> dict:
         return r.json()
 
 
-def get_or_create_google_user(google_id: str, email: str, name: str, picture: str = "") -> dict:
+def get_or_create_google_user(google_id: str, email: str, name: str, picture: str = "", signup_ip: str = "") -> dict:
     from database import get_db
     from auth.deps import ensure_subscription, get_active_plan
     db = get_db()
@@ -72,8 +72,8 @@ def get_or_create_google_user(google_id: str, email: str, name: str, picture: st
                 user_id = row["id"]
             else:
                 cur = db.execute(
-                    "INSERT INTO users (name, email, google_id, picture) VALUES (?, ?, ?, ?)",
-                    (name, email, google_id, picture),
+                    "INSERT INTO users (name, email, google_id, picture, signup_ip) VALUES (?, ?, ?, ?, ?)",
+                    (name, email, google_id, picture, signup_ip),
                 )
                 db.commit()
                 user_id = cur.lastrowid

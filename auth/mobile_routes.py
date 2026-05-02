@@ -55,7 +55,9 @@ def _user_response(user: dict) -> dict:
 @limiter.limit("5/minute")
 async def mobile_register(body: RegisterRequest, request: Request):
     try:
-        user = register_user(body.name.strip(), body.email.lower(), body.password)
+        from auth.deps import get_client_ip
+        ip = get_client_ip(request)
+        user = register_user(body.name.strip(), body.email.lower(), body.password, signup_ip=ip)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return _user_response(user)

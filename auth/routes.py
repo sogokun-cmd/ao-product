@@ -36,7 +36,9 @@ async def do_register(
     password: str = Form(...),
 ):
     try:
-        user  = register_user(name.strip(), email.strip().lower(), password)
+        from auth.deps import get_client_ip
+        ip = get_client_ip(request)
+        user  = register_user(name.strip(), email.strip().lower(), password, signup_ip=ip)
         token = create_token(user["id"], user["email"], user["plan"], user["name"])
         resp  = RedirectResponse(url="/app", status_code=303)
         resp.set_cookie(COOKIE_KEY, token, max_age=_MAX_AGE, httponly=True, samesite="lax", secure=_SECURE_COOKIE)
@@ -94,11 +96,13 @@ async def google_callback(request: Request, code: str = "", state: str = "", err
     try:
         tokens    = await exchange_code(code)
         user_info = await get_google_user_info(tokens["access_token"])
+        from auth.deps import get_client_ip
         user      = get_or_create_google_user(
             google_id = user_info["id"],
             email     = user_info["email"],
             name      = user_info.get("name", user_info["email"]),
             picture   = user_info.get("picture", ""),
+            signup_ip = get_client_ip(request),
         )
     except Exception as exc:
         return RedirectResponse(
