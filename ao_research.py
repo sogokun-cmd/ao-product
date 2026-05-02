@@ -3491,12 +3491,16 @@ def run_university_analysis(client: anthropic.Anthropic, keyword: str, pdf_url: 
                 break
 
         if pdf_texts_by_year:
-            _found_years = [yr for yr in _target_years if yr in pdf_texts_by_year]
-            parts = [f"=== {yr}年度 PDF募集要項 ===\n{pdf_texts_by_year[yr]}" for yr in _found_years]
+            # アップロード・指定URLを先頭に、年号順で後続
+            _special_keys = [k for k in ("アップロード", "指定") if k in pdf_texts_by_year]
+            _year_keys = [yr for yr in _target_years if yr in pdf_texts_by_year]
+            _all_keys = _special_keys + _year_keys
+            parts = [f"=== {yr}年度 PDF募集要項 ===\n{pdf_texts_by_year[yr]}" for yr in _all_keys]
             text_pdf = "\n\n".join(parts)
+            _found_years = _all_keys
             console.print(
-                f"  [bold green]✓ PDF取得完了: {len(pdf_texts_by_year)}年度分"
-                f" ({', '.join(_found_years)})[/bold green]"
+                f"  [bold green]✓ PDF取得完了: {len(_all_keys)}件"
+                f" ({', '.join(_all_keys)})[/bold green]"
             )
         else:
             console.print("  [dim]PDF自動取得: 全年度見つからなかったためスキップ（--pdf-url で直接指定可）[/dim]")
@@ -4679,7 +4683,13 @@ def run_news_analysis(client, keyword: str, progress_cb=None) -> dict:
             except ImportError:
                 from duckduckgo_search import DDGS
             ddgs = DDGS()
-            for q in NEWS_QUERIES[:4]:
+            # 大学名を含む固有クエリを優先
+            _uni_name = keyword.split()[0] if keyword else ""
+            _specific_queries = [
+                f"{keyword} 総合型選抜 ニュース 2026 2027",
+                f"{_uni_name} AO入試 最新情報",
+            ] if _uni_name else []
+            for q in _specific_queries + NEWS_QUERIES[:3]:
                 try:
                     for r in ddgs.text(q, max_results=6):
                         raw_items.append({"title": r.get("title",""), "url": r.get("href",""),
@@ -4708,7 +4718,7 @@ def run_news_analysis(client, keyword: str, progress_cb=None) -> dict:
     if not combined.strip():
         combined = f"※ リアルタイムデータの取得に失敗しました。Claudeの学習データに基づいて「{keyword}」に関するニュース動向を分析してください。"
 
-    prompt = f"""以下は「{keyword}」に関する最新ニュース一覧です。
+    prompt = f"""以下は「{keyword}」の総合型選抜に関するニュース一覧です。
 
 {combined}
 
@@ -4723,7 +4733,9 @@ def run_news_analysis(client, keyword: str, progress_cb=None) -> dict:
   "policy_updates": ["制度・政策の変更点1", "変更点2"],
   "insights": ["マーケティング示唆1", "示唆2"],
   "data_quality": "データ品質コメント"
-}}"""
+}}
+
+重要: hot_topicsは「{keyword}」に直接関連するニュースを優先して上位に並べてください。大学名や学部名が一致しないニュースは下位にするか除外してください。"""
 
     try:
         result = _extract_json_via_router("news", prompt, max_tokens=3000)
