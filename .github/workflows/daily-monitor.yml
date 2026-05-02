@@ -9,111 +9,184 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     steps:
-      - name: Collect Data and Send Report
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect Data & E2E Tests
+        id: data
         run: |
-          set +e  # grepのexit 1で止まらないように
+          set +e
 
           DATE=$(TZ=Asia/Tokyo date '+%Y-%m-%d')
+          echo "date=$DATE" >> $GITHUB_OUTPUT
 
           # ── ヘルスチェック ──────────────────────────────
           HEALTH=$(curl -s --max-time 10 https://ao.helphero.jp/api/health)
           ANTHROPIC=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('llm',{}).get('providers_available',[]); print('✅' if 'anthropic' in p else '❌')" 2>/dev/null || echo "❌")
-          OPENAI=$(echo "$HEALTH"    | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('llm',{}).get('providers_available',[]); print('✅' if 'openai'    in p else '❌')" 2>/dev/null || echo "❌")
-          GOOGLE=$(echo "$HEALTH"   | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('llm',{}).get('providers_available',[]); print('✅' if 'google'     in p else '❌')" 2>/dev/null || echo "❌")
+          OPENAI=$(echo    "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('llm',{}).get('providers_available',[]); print('✅' if 'openai'    in p else '❌')" 2>/dev/null || echo "❌")
+          GOOGLE=$(echo    "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('llm',{}).get('providers_available',[]); print('✅' if 'google'     in p else '❌')" 2>/dev/null || echo "❌")
+          echo "anthropic=$ANTHROPIC" >> $GITHUB_OUTPUT
+          echo "openai=$OPENAI"       >> $GITHUB_OUTPUT
+          echo "google=$GOOGLE"       >> $GITHUB_OUTPUT
 
           # ── 管理統計 ────────────────────────────────────
           STATS=$(curl -s -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}" https://ao.helphero.jp/api/admin/stats)
-          TOTAL_USERS=$(echo "$STATS"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['total'])"          2>/dev/null || echo "?")
-          NEW_USERS=$(echo "$STATS"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['new_24h'])"        2>/dev/null || echo "?")
+          TOTAL_USERS=$(echo  "$STATS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['total'])"          2>/dev/null || echo "?")
+          NEW_USERS=$(echo    "$STATS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['new_24h'])"        2>/dev/null || echo "?")
           RESEARCH_24H=$(echo "$STATS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['last_24h'])"    2>/dev/null || echo "?")
-          DONE_24H=$(echo "$STATS"     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['done_24h'])"    2>/dev/null || echo "?")
-          ERROR_24H=$(echo "$STATS"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['error_24h'])"   2>/dev/null || echo "0")
-          PENDING=$(echo "$STATS"      | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['pending_now'])" 2>/dev/null || echo "0")
-          ERRORS_HTML=$(echo "$STATS"  | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          errs = d.get('recent_errors', [])
-          if errs:
-              print('<br>'.join(f\"{e['msg']} (x{e['count']})\" for e in errs))
-          else:
-              print('なし')
+          DONE_24H=$(echo     "$STATS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['done_24h'])"    2>/dev/null || echo "?")
+          ERROR_24H=$(echo    "$STATS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['error_24h'])"   2>/dev/null || echo "0")
+          PENDING=$(echo      "$STATS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['pending_now'])" 2>/dev/null || echo "0")
+          ERRORS_HTML=$(echo  "$STATS" | python3 -c "
+          import sys,json
+          d=json.load(sys.stdin)
+          errs=d.get('recent_errors',[])
+          print('<br>'.join(f\"{e['msg']} (x{e['count']})\" for e in errs) if errs else 'なし')
           " 2>/dev/null || echo "取得失敗")
           COST_HTML=$(echo "$STATS" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          costs = d.get('llm_cost_24h', [])
-          if costs:
-              print('<br>'.join(f\"{c['provider']}: \${c['cost_usd']} ({c['calls']}calls)\" for c in costs))
-          else:
-              print('計測なし')
+          import sys,json
+          d=json.load(sys.stdin)
+          costs=d.get('llm_cost_24h',[])
+          print('<br>'.join(f\"{c['provider']}: \${c['cost_usd']} ({c['calls']}calls)\" for c in costs) if costs else '計測なし')
           " 2>/dev/null || echo "取得失敗")
+          echo "total_users=$TOTAL_USERS"   >> $GITHUB_OUTPUT
+          echo "new_users=$NEW_USERS"       >> $GITHUB_OUTPUT
+          echo "research_24h=$RESEARCH_24H" >> $GITHUB_OUTPUT
+          echo "done_24h=$DONE_24H"         >> $GITHUB_OUTPUT
+          echo "error_24h=$ERROR_24H"       >> $GITHUB_OUTPUT
+          echo "pending=$PENDING"           >> $GITHUB_OUTPUT
+          {
+            echo "errors_html<<EOF_ERRORS"
+            echo "$ERRORS_HTML"
+            echo "EOF_ERRORS"
+          } >> $GITHUB_OUTPUT
+          {
+            echo "cost_html<<EOF_COST"
+            echo "$COST_HTML"
+            echo "EOF_COST"
+          } >> $GITHUB_OUTPUT
 
           # ── E2Eテスト ───────────────────────────────────
-          icon() { [ "$1" = "200" ] && echo "✅" || echo "❌($1)"; }
-          icon_redirect() { { [ "$1" = "301" ] || [ "$1" = "302" ]; } && echo "✅" || echo "❌($1)"; }
-          icon_auth()     { { [ "$1" = "401" ] || [ "$1" = "403" ]; } && echo "✅" || echo "❌($1)"; }
+          icon()          { [ "$1" = "200" ]                                   && echo "✅" || echo "❌($1)"; }
+          icon_redirect() { { [ "$1" = "301" ] || [ "$1" = "302" ]; }          && echo "✅" || echo "❌($1)"; }
+          icon_auth()     { { [ "$1" = "401" ] || [ "$1" = "403" ]; }          && echo "✅" || echo "❌($1)"; }
 
-          LP=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/)
-          LOGIN_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/login)
-          REG_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/register)
-          OGP_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/static/ogp.png)
+          LP=$(curl       -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/)
+          LOGIN_S=$(curl  -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/login)
+          REG_S=$(curl    -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/register)
+          OGP_S=$(curl    -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/static/ogp.png)
           ROBOTS_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/robots.txt)
-          APP_S=$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 https://ao.helphero.jp/app; true)
-          API_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/api/research)
+          APP_S=$(curl    -s -o /dev/null -w '%{http_code}' --max-redirs 0 https://ao.helphero.jp/app; true)
+          API_S=$(curl    -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/api/research)
+          OGP_TAGS=$(curl -s https://ao.helphero.jp/ | grep -oi 'og:title\|og:image\|og:description' | wc -l || echo 0)
+          SEC_CNT=$(curl  -s -I https://ao.helphero.jp/ | grep -ci 'x-frame-options\|x-content-type' || echo 0)
 
-          LP_ICON=$(icon "$LP")
-          LOGIN_ICON=$(icon "$LOGIN_S")
-          REG_ICON=$(icon "$REG_S")
-          OGP_ICON=$(icon "$OGP_S")
-          ROBOTS_ICON=$(icon "$ROBOTS_S")
-          APP_ICON=$(icon_redirect "$APP_S")
-          API_ICON=$(icon_auth "$API_S")
+          LP_ICON=$(icon "$LP"); LOGIN_ICON=$(icon "$LOGIN_S"); REG_ICON=$(icon "$REG_S")
+          OGP_ICON=$(icon "$OGP_S"); ROBOTS_ICON=$(icon "$ROBOTS_S")
+          APP_ICON=$(icon_redirect "$APP_S"); API_ICON=$(icon_auth "$API_S")
+          OGP_OK=$([ "$OGP_TAGS" -ge 2 ] && echo "✅" || echo "❌(og:${OGP_TAGS}件)")
+          SEC_OK=$([ "$SEC_CNT"  -ge 1 ] && echo "✅" || echo "❌")
 
-          OGP_TAGS=$(curl -s https://ao.helphero.jp/ | grep -oE 'og:(title|image|description)' | wc -l || echo 0)
-          OGP_OK=$([ "$OGP_TAGS" -ge 2 ] && echo "✅" || echo "❌(og: $OGP_TAGS件)")
-          SEC_CNT=$(curl -s -I https://ao.helphero.jp/ | grep -ci 'x-frame-options\|x-content-type' || echo 0)
-          SEC_OK=$([ "$SEC_CNT" -ge 1 ] && echo "✅" || echo "❌")
+          echo "lp_icon=$LP_ICON"           >> $GITHUB_OUTPUT
+          echo "login_icon=$LOGIN_ICON"     >> $GITHUB_OUTPUT
+          echo "reg_icon=$REG_ICON"         >> $GITHUB_OUTPUT
+          echo "ogp_icon=$OGP_ICON"         >> $GITHUB_OUTPUT
+          echo "robots_icon=$ROBOTS_ICON"   >> $GITHUB_OUTPUT
+          echo "app_icon=$APP_ICON"         >> $GITHUB_OUTPUT
+          echo "api_icon=$API_ICON"         >> $GITHUB_OUTPUT
+          echo "ogp_ok=$OGP_OK"             >> $GITHUB_OUTPUT
+          echo "sec_ok=$SEC_OK"             >> $GITHUB_OUTPUT
 
-          # ── 異常判定 ────────────────────────────────────
-          WARN=""
-          [ "$LP" != "200" ] && WARN="⚠️"
-          [ "$LOGIN_S" != "200" ] && WARN="⚠️"
-          [ "$REG_S" != "200" ] && WARN="⚠️"
-          [ "$ANTHROPIC" = "❌" ] && WARN="⚠️"
-          python3 -c "exit(0 if int('${ERROR_24H:-0}') < 5 else 1)" 2>/dev/null && true || WARN="⚠️"
-          python3 -c "exit(0 if int('${PENDING:-0}') < 10 else 1)" 2>/dev/null && true || WARN="⚠️"
+          # 問題リストをJSONで保存（自動修正用）
+          ISSUES="[]"
+          [ "$LP" != "200" ]    && ISSUES=$(echo "$ISSUES" | python3 -c "import sys,json; l=json.load(sys.stdin); l.append({'type':'e2e','page':'LP','status':'$LP'}); print(json.dumps(l))")
+          [ "$LOGIN_S" != "200" ] && ISSUES=$(echo "$ISSUES" | python3 -c "import sys,json; l=json.load(sys.stdin); l.append({'type':'e2e','page':'login','status':'$LOGIN_S'}); print(json.dumps(l))")
+          [ "$REG_S" != "200" ] && ISSUES=$(echo "$ISSUES" | python3 -c "import sys,json; l=json.load(sys.stdin); l.append({'type':'e2e','page':'register','status':'$REG_S'}); print(json.dumps(l))")
+          [ "$OGP_S" != "200" ] && ISSUES=$(echo "$ISSUES" | python3 -c "import sys,json; l=json.load(sys.stdin); l.append({'type':'e2e','page':'ogp.png','status':'$OGP_S'}); print(json.dumps(l))")
+          if [ -n "$ERRORS_HTML" ] && [ "$ERRORS_HTML" != "なし" ] && [ "$ERRORS_HTML" != "取得失敗" ]; then
+            ISSUES=$(echo "$ISSUES" | python3 -c "import sys,json; l=json.load(sys.stdin); l.append({'type':'db_error','detail':'$(echo $ERRORS_HTML | head -c 200)'}); print(json.dumps(l))")
+          fi
+          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
 
-          SUBJECT="${WARN}【AOリサーチ】日次レポート ${DATE}"
+          # 異常フラグ
+          WARN="false"
+          [ "$LP" != "200" ] || [ "$LOGIN_S" != "200" ] || [ "$REG_S" != "200" ] && WARN="true"
+          python3 -c "exit(1 if int('${ERROR_24H:-0}') >= 5 else 0)" 2>/dev/null && true || WARN="true"
+          python3 -c "exit(1 if int('${PENDING:-0}') >= 10 else 0)" 2>/dev/null && true || WARN="true"
+          echo "warn=$WARN" >> $GITHUB_OUTPUT
 
-          # ── HTMLメール ──────────────────────────────────
+      - name: Auto Fix (if issues found)
+        id: autofix
+        if: steps.data.outputs.issues != '[]'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set +e
+          ISSUES='${{ steps.data.outputs.issues }}'
+          echo "Running auto-fix for: $ISSUES"
+          OUTPUT=$(python3 .github/scripts/auto_fix.py "$ISSUES" 2>&1)
+          echo "$OUTPUT"
+
+          if echo "$OUTPUT" | grep -q "^AUTO_FIXED:"; then
+            MSG=$(echo "$OUTPUT" | grep "^AUTO_FIXED:" | sed 's/AUTO_FIXED://')
+            echo "fixed=true"  >> $GITHUB_OUTPUT
+            echo "msg=$MSG"    >> $GITHUB_OUTPUT
+          elif echo "$OUTPUT" | grep -q "^CANNOT_FIX:"; then
+            REASON=$(echo "$OUTPUT" | grep "^CANNOT_FIX:" | sed 's/CANNOT_FIX://')
+            echo "fixed=false"      >> $GITHUB_OUTPUT
+            echo "cannot_fix=$REASON" >> $GITHUB_OUTPUT
+          else
+            echo "fixed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Report
+        run: |
+          DATE="${{ steps.data.outputs.date }}"
+          WARN="${{ steps.data.outputs.warn }}"
+          PREFIX=$([ "$WARN" = "true" ] && echo "⚠️" || echo "")
+          SUBJECT="${PREFIX}【AOリサーチ】日次レポート ${DATE}"
+
+          FIXED="${{ steps.autofix.outputs.fixed }}"
+          FIX_MSG="${{ steps.autofix.outputs.msg }}"
+          CANNOT_FIX="${{ steps.autofix.outputs.cannot_fix }}"
+
+          if [ "$FIXED" = "true" ]; then
+            FIX_HTML="<span style='color:#16a34a'>✅ 自動修正済み: ${FIX_MSG}</span>"
+          elif [ -n "$CANNOT_FIX" ]; then
+            FIX_HTML="<span style='color:#dc2626'>⚠️ 要対応: ${CANNOT_FIX}</span>"
+          else
+            FIX_HTML="なし"
+          fi
+
           HTML="<div style='font-family:sans-serif;max-width:600px;margin:0 auto'>
           <h2 style='color:#4f46e5;border-bottom:2px solid #e5e7eb;padding-bottom:8px'>AOリサーチ 日次レポート — ${DATE}</h2>
           <h3 style='color:#374151'>📊 利用状況</h3>
           <table style='width:100%;border-collapse:collapse;font-size:14px'>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>LLM状態</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>anthropic ${ANTHROPIC} &nbsp; openai ${OPENAI} &nbsp; google ${GOOGLE}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>ユーザー</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>累計 ${TOTAL_USERS}人 / 昨日 +${NEW_USERS}人登録</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>リサーチ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>昨日 ${RESEARCH_24H}件（成功 ${DONE_24H} / 失敗 ${ERROR_24H}）待機中 ${PENDING}件</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>LLM状態</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>anthropic ${{ steps.data.outputs.anthropic }} &nbsp; openai ${{ steps.data.outputs.openai }} &nbsp; google ${{ steps.data.outputs.google }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>ユーザー</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>累計 ${{ steps.data.outputs.total_users }}人 / 昨日 +${{ steps.data.outputs.new_users }}人登録</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>リサーチ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>昨日 ${{ steps.data.outputs.research_24h }}件（成功 ${{ steps.data.outputs.done_24h }} / 失敗 ${{ steps.data.outputs.error_24h }}）待機中 ${{ steps.data.outputs.pending }}件</td></tr>
           </table>
           <h3 style='color:#374151;margin-top:20px'>🔍 E2Eテスト結果</h3>
           <table style='width:100%;border-collapse:collapse;font-size:14px'>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>トップページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${LP_ICON}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>ログインページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${LOGIN_ICON}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>登録ページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${REG_ICON}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>OGP画像</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${OGP_ICON}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>robots.txt</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${ROBOTS_ICON}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>認証リダイレクト (/app)</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${APP_ICON}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>API保護</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${API_ICON}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>OGPタグ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${OGP_OK}</td></tr>
-          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>セキュリティヘッダー</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${SEC_OK}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>トップページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.lp_icon }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>ログインページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.login_icon }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>登録ページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.reg_icon }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>OGP画像</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.ogp_icon }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>robots.txt</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.robots_icon }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>認証リダイレクト (/app)</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.app_icon }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>API保護</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.api_icon }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>OGPタグ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.ogp_ok }}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>セキュリティヘッダー</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.data.outputs.sec_ok }}</td></tr>
           </table>
+          <h3 style='color:#374151;margin-top:20px'>🔧 自動修正</h3>
+          <p style='font-size:14px'>${FIX_HTML}</p>
           <h3 style='color:#374151;margin-top:20px'>🚨 エラーログ（直近24h）</h3>
-          <p style='font-size:14px;color:#374151'>${ERRORS_HTML}</p>
+          <p style='font-size:14px;color:#374151'>${{ steps.data.outputs.errors_html }}</p>
           <h3 style='color:#374151'>💰 LLMコスト（直近24h）</h3>
-          <p style='font-size:14px;color:#374151'>${COST_HTML}</p>
+          <p style='font-size:14px;color:#374151'>${{ steps.data.outputs.cost_html }}</p>
           <p style='color:#9ca3af;font-size:12px;margin-top:32px;border-top:1px solid #f3f4f6;padding-top:12px'>AOリサーチ 自動監視 — GitHub Actions</p>
           </div>"
 
-          # ── 送信 ────────────────────────────────────────
           curl -s -X POST https://api.resend.com/emails \
             -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
             -H "Content-Type: application/json" \
