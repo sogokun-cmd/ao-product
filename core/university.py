@@ -435,14 +435,10 @@ def _run_sync(
     unis_count = len(university_data.get("universities") or [])
     _append_progress(request_id, f"✓ 大学情報取得（{faculties_count}学部 / {unis_count}学科）")
 
-    _append_progress(request_id, "前年比・変更点を分析中...")
-    news_data = ao.run_news_analysis(client, keyword, progress_cb=_on_progress)
-    _append_progress(request_id, "✓ 前年比分析完了")
-
     _append_progress(request_id, "✅ 全分析完了 — 出典と「不明」を整理しています")
     _save_result(
         request_id,
-        university_data, news_data,
+        university_data, {},
         summary_input={
             "university": university, "faculty": faculty, "department": department,
             "admission_method": admission_method, "keyword": keyword,

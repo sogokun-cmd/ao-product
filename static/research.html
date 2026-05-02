@@ -79,7 +79,6 @@
   .source-link.aggregator { background: var(--yellow-soft); color: var(--yellow); border-color: var(--yellow); }
   .source-link.unknown { background: #f0f0f0; color: var(--muted); }
 
-  .news-section { margin-top: var(--gap-lg); }
   .summary-box {
     background: var(--brand-light); padding: 14px; border-radius: var(--radius);
     color: var(--ink-soft); margin-bottom: 14px; line-height: 1.7;
@@ -260,7 +259,6 @@ let _pdfTab = 'url';
 
 const _PHASES = [
   { keywords: ['全分析完了', '出典と「不明」'],  label: '最終整理中',         remaining: '約1分' },
-  { keywords: ['前年比', 'ニュース分析', '前年比分析完了'], label: 'ニュース分析中', remaining: '約2分' },
   { keywords: ['StepC', '学科別', '学科情報抽出'],  label: '学科詳細を抽出中',  remaining: '約5分' },
   { keywords: ['StepA/B', 'StepA', 'StepB', '並列抽出', '大学・学部情報'], label: '大学・学部情報を抽出中', remaining: '約8分' },
   { keywords: ['Step2-10', '並列収集', 'サイト横断'], label: 'サイト横断収集中',  remaining: '約11分' },
@@ -825,44 +823,6 @@ function renderResult(req, result) {
       html += '<div style="margin-top:8px"><strong>この大学と強く接続する経験・問題意識</strong><ul style="margin:4px 0;padding-left:18px">';
       u.match_anchors.forEach(a => { html += `<li>${esc(a)}</li>`; });
       html += '</ul></div>';
-    }
-    html += '</div>';
-  }
-
-  // ニュース
-  const news = result.result.news_data || {};
-  if (news.summary || (news.hot_topics || []).length) {
-    html += `<div class="card news-section"><h3 class="card-title">前年比・ニュース</h3>`;
-    if (news.summary) html += `<div class="summary-box">${esc(news.summary)}</div>`;
-    const topics = news.hot_topics || [];
-    if (topics.length) {
-      html += '<ol style="padding-left:20px;color:var(--ink-soft);">';
-      topics.forEach(t => {
-        if (typeof t === 'string') {
-          html += `<li>${esc(t)}</li>`;
-          return;
-        }
-        // {rank, topic, description, source, url} 形式と {title, url} 形式の両対応
-        const title   = t.title || t.topic || '';
-        const desc    = t.description || '';
-        const source  = t.source ? ` <span class="muted" style="font-size:.78rem">— ${esc(t.source)}</span>` : '';
-        const urlLink = t.url ? ` <a href="${esc(t.url)}" target="_blank" rel="noopener" style="font-size:.78rem">↗</a>` : '';
-        html += `<li style="margin-bottom:6px"><strong>${esc(title)}</strong>${source}${urlLink}`;
-        if (desc) html += `<div class="muted" style="font-size:.82rem;margin-top:2px">${esc(desc)}</div>`;
-        html += '</li>';
-      });
-      html += '</ol>';
-    }
-    if (Array.isArray(news.insights) && news.insights.length) {
-      html += '<div style="margin-top:12px"><strong>マーケティング示唆</strong><ul style="margin:6px 0;padding-left:18px">';
-      news.insights.forEach(x => { html += `<li>${esc(x)}</li>`; });
-      html += '</ul></div>';
-    }
-    if (Array.isArray(news.key_themes) && news.key_themes.length) {
-      html += `<div style="margin-top:8px"><strong>主要テーマ</strong>: ${news.key_themes.map(x => `<span style="font-size:.76rem;padding:2px 8px;background:var(--brand-light);color:var(--brand-blue);border-radius:10px;margin-right:4px">${esc(x)}</span>`).join('')}</div>`;
-    }
-    if (news.trend_direction) {
-      html += `<div style="margin-top:6px;font-size:.82rem"><strong>トレンド方向</strong>: ${esc(news.trend_direction)}</div>`;
     }
     html += '</div>';
   }
