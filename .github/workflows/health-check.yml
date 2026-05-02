@@ -1,0 +1,56 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # 6時間ごと
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health Check
+        id: health
+        run: |
+          RESPONSE=$(curl -s --max-time 10 https://ao.helphero.jp/api/health || echo 'TIMEOUT')
+          HTTP=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://ao.helphero.jp/ || echo '000')
+          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "http=$HTTP" >> $GITHUB_OUTPUT
+          echo "HEALTH: $RESPONSE  HTTP: $HTTP"
+
+      - name: Alert on Failure
+        if: always()
+        run: |
+          RESPONSE='${{ steps.health.outputs.response }}'
+          HTTP=${{ steps.health.outputs.http }}
+          DATE=$(date '+%Y-%m-%d %H:%M' -d '+9 hours')
+
+          # 異常判定
+          ALERT=false
+          REASON=""
+
+          if [ "$HTTP" = "000" ] || echo "$RESPONSE" | grep -q "TIMEOUT"; then
+            ALERT=true
+            REASON="サービスがタイムアウト / 応答なし"
+          fi
+
+          ANTHROPIC=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('providers',{}); print('ok' if p.get('anthropic') else 'ng')" 2>/dev/null || echo "ng")
+          OPENAI=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('providers',{}); print('ok' if p.get('openai') else 'ng')" 2>/dev/null || echo "ng")
+          GOOGLE=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('providers',{}); print('ok' if p.get('google') else 'ng')" 2>/dev/null || echo "ng")
+
+          if [ "$ANTHROPIC" = "ng" ] && [ "$OPENAI" = "ng" ] && [ "$GOOGLE" = "ng" ]; then
+            ALERT=true
+            REASON="LLMプロバイダが全て停止"
+          fi
+
+          if [ "$ALERT" = "true" ]; then
+            HTML="<div style='font-family:sans-serif'><h2 style='color:#dc2626'>⚠️ AOリサーチ 異常検知</h2><p><strong>時刻:</strong> ${DATE} JST</p><p><strong>原因:</strong> ${REASON}</p><p><strong>HTTP:</strong> ${HTTP}</p><p><strong>詳細:</strong> ${RESPONSE}</p><p><a href='https://ao.helphero.jp'>サイトを確認する</a></p></div>"
+
+            curl -s -X POST https://api.resend.com/emails \
+              -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"from\":\"AOリサーチBot <noreply@ao.helphero.jp>\",\"to\":[\"sogokun@sogogatacom.com\"],\"subject\":\"⚠️【AOリサーチ】サービス異常検知 ${DATE}\",\"html\":\"${HTML}\"}"
+            echo "ALERT SENT"
+          else
+            echo "正常"
+          fi
