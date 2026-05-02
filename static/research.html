@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リサーチ — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;600;700;800&family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .form-card { background: #fff; padding: var(--gap-lg); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .form-grid { grid-template-columns: 1fr; } }
+
+  .progress-card { background: #fff; padding: var(--gap-lg); border: 1px solid var(--border); border-radius: var(--radius); margin-top: 14px; display: none; }
+  .progress-log {
+    margin-top: 12px; padding: 12px; background: var(--bg);
+    border-radius: var(--radius-sm); font-family: var(--font-num); font-size: .82rem;
+    max-height: 220px; overflow-y: auto; line-height: 1.7; color: var(--ink-soft);
+  }
+  .progress-log .line { padding: 2px 0; }
+  .eta-bar {
+    display: none; align-items: center; gap: 12px; margin-top: 10px;
+    padding: 10px 14px; background: var(--brand-light);
+    border-left: 3px solid var(--brand-blue);
+    border-radius: var(--radius-sm); font-size: .85rem;
+  }
+  .eta-phase { color: var(--ink-soft); flex: 1; font-weight: 600; }
+  .eta-elapsed { font-family: var(--font-num); color: var(--ink-soft); white-space: nowrap; font-size: .8rem; }
+  .eta-remaining { font-weight: 800; color: var(--brand-blue); white-space: nowrap; font-size: .9rem; }
+  .pdf-notice {
+    padding: 10px 14px; border-radius: var(--radius-sm); font-size: .82rem;
+    margin-bottom: 10px; display: flex; gap: 8px; align-items: flex-start; line-height: 1.6;
+  }
+  .pdf-notice.info { background: var(--brand-light); color: var(--brand-blue); }
+  .pdf-notice.warn { background: var(--yellow-soft); color: #92400e; }
+  .unpublished-badge {
+    display: inline-block; font-size: .68rem; padding: 1px 7px; border-radius: 8px;
+    margin-left: 6px; font-weight: 700; background: var(--yellow-soft); color: var(--yellow);
+  }
+  .unknown-note { font-size: .76rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+
+  .result-wrap { margin-top: 18px; display: none; }
+  .result-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .result-title { font-size: 1.1rem; font-weight: 800; color: var(--brand-navy); margin: 0; }
+  .source-summary {
+    background: #fff; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+  }
+  .source-summary-item { font-size: .82rem; color: var(--ink-soft); }
+  .source-summary-item strong { color: var(--brand-navy); font-family: var(--font-num); }
+  .unknown-warn {
+    margin-left: auto; font-size: .78rem; padding: 4px 10px;
+    background: var(--yellow-soft); color: var(--yellow); border-radius: 12px; font-weight: 700;
+  }
+
+  .fact-table {
+    width: 100%; background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+    border-collapse: separate; border-spacing: 0; overflow: hidden; font-size: .88rem;
+  }
+  .fact-table th, .fact-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .fact-table th { background: var(--bg); font-weight: 700; color: var(--brand-navy); width: 30%; font-size: .82rem; }
+  .fact-table tr:last-child th, .fact-table tr:last-child td { border-bottom: 0; }
+  .conf-badge {
+    font-size: .68rem; padding: 1px 7px; border-radius: 8px; margin-left: 6px; font-weight: 700;
+  }
+  .conf-high { background: var(--green-soft); color: var(--green); }
+  .conf-medium { background: var(--yellow-soft); color: var(--yellow); }
+  .conf-low { background: var(--red-soft); color: var(--red); }
+  .conf-unknown { background: #f0f0f0; color: var(--muted); }
+  .source-list { font-size: .76rem; color: var(--muted); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .source-link { display: inline-block; padding: 2px 8px; border: 1px solid var(--border); border-radius: 10px; }
+  .source-link.official_pdf { background: var(--green-soft); color: var(--green); border-color: var(--green); }
+  .source-link.official_html { background: var(--brand-light); color: var(--brand-blue); border-color: var(--brand-blue); }
+  .source-link.aggregator { background: var(--yellow-soft); color: var(--yellow); border-color: var(--yellow); }
+  .source-link.unknown { background: #f0f0f0; color: var(--muted); }
+
+  .news-section { margin-top: var(--gap-lg); }
+  .summary-box {
+    background: var(--brand-light); padding: 14px; border-radius: var(--radius);
+    color: var(--ink-soft); margin-bottom: 14px; line-height: 1.7;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Save dialog */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(15,38,87,.4); display: none;
+    align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: #fff; padding: 24px; border-radius: var(--radius-lg); width: 460px; max-width: 92vw;
+    max-height: 88vh; overflow: auto;
+  }
+  .modal h3 { margin: 0 0 12px; color: var(--brand-navy); }
+  .student-pick {
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    cursor: pointer; margin-bottom: 6px;
+  }
+  .student-pick:hover { border-color: var(--brand-blue); background: var(--brand-light); }
+  .student-pick.selected { border-color: var(--brand-navy); background: var(--brand-light); }
+
+  /* PDF upload toggle */
+  .pdf-toggle { display:flex; gap:8px; margin-bottom:6px; }
+  .pdf-toggle-btn { padding:3px 10px; border:1.5px solid var(--border); border-radius:12px; font-size:.76rem; cursor:pointer; background:#fff; color:var(--ink-soft); font-weight:600; }
+  .pdf-toggle-btn.active { background:var(--brand-navy); border-color:var(--brand-navy); color:#fff; }
+  .pdf-drop {
+    border:2px dashed var(--border); border-radius:var(--radius-sm); padding:16px;
+    text-align:center; cursor:pointer; font-size:.82rem; color:var(--muted);
+    transition:border-color .15s;
+  }
+  .pdf-drop:hover, .pdf-drop.over { border-color:var(--brand-blue); color:var(--brand-blue); }
+  .pdf-drop.loaded { border-color:var(--green); background:var(--green-soft); color:var(--green); }
+
+  /* Tags */
+  .tag-section { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 0 6px; margin-bottom:4px; }
+  .tag-chip {
+    display:inline-flex; align-items:center; gap:4px; padding:3px 10px;
+    background:var(--brand-light); color:var(--brand-blue); border-radius:12px;
+    font-size:.76rem; font-weight:700;
+  }
+  .tag-chip .rm { cursor:pointer; font-size:.7rem; opacity:.7; margin-left:2px; }
+  .tag-chip .rm:hover { opacity:1; }
+  .tag-input {
+    padding:4px 10px; border:1.5px solid var(--border); border-radius:12px;
+    font-size:.76rem; width:120px; outline:none;
+  }
+  .tag-input:focus { border-color:var(--brand-blue); }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+
+<main class="app-shell">
+  <h1 style="margin:0 0 8px;color:var(--brand-navy)">リサーチ</h1>
+  <p class="muted">大学公式・公式PDF を主軸に、出願資格・選考方法・日程を整理します。不明項目は「不明」と表示。</p>
+
+  <div class="form-card" id="form-card">
+    <div class="form-grid">
+      <div class="field">
+        <label>大学名 <span style="color:var(--red)">*</span></label>
+        <input id="f-univ" placeholder="例: 立教大学" maxlength="100">
+      </div>
+      <div class="field">
+        <label>学部 <span style="color:var(--red)">*</span></label>
+        <input id="f-faculty" placeholder="例: スポーツウエルネス学部" maxlength="100" required>
+      </div>
+      <div class="field">
+        <label>学科 <span style="color:var(--red)">*</span></label>
+        <input id="f-dept" placeholder="例: 経済学科" maxlength="100" required>
+      </div>
+      <div class="field">
+        <label>入試方式</label>
+        <input id="f-method" placeholder="例: 自由選抜入試 / SFC AO" maxlength="100">
+      </div>
+      <div class="field">
+        <label>キーワード</label>
+        <input id="f-kw" placeholder="例: 総合型選抜 公募" maxlength="200">
+      </div>
+      <div class="field">
+        <label>募集要項PDF <span style="color:var(--brand-blue);font-size:.78rem">★強く推奨</span></label>
+        <div class="pdf-toggle">
+          <button type="button" class="pdf-toggle-btn active" id="pdf-tab-url" onclick="setPdfTab('url')">URLを貼る</button>
+          <button type="button" class="pdf-toggle-btn" id="pdf-tab-file" onclick="setPdfTab('file')">ファイルをアップロード</button>
+        </div>
+        <div id="pdf-url-area">
+          <input id="f-pdf" placeholder="https://...例: 公式募集要項のPDF URL" maxlength="500">
+          <div class="hint" style="font-size:.76rem;margin-top:4px;color:var(--ink-soft)">
+            大学公式の募集要項PDFのURLを貼り付けてください。viewer ページや埋め込みビューアのURLでも抽出を試みます。
+          </div>
+        </div>
+        <div id="pdf-file-area" style="display:none">
+          <div class="pdf-drop" id="pdf-drop" onclick="document.getElementById('pdf-file-input').click()"
+               ondragover="event.preventDefault();this.classList.add('over')"
+               ondragleave="this.classList.remove('over')"
+               ondrop="event.preventDefault();this.classList.remove('over');handlePdfDrop(event.dataTransfer.files[0])">
+            <div id="pdf-drop-label">ここをクリック または PDFをドラッグ＆ドロップ</div>
+          </div>
+          <input type="file" id="pdf-file-input" accept=".pdf,application/pdf" style="display:none" onchange="handlePdfDrop(this.files[0])">
+          <input type="hidden" id="f-pdf-text">
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn btn-primary" id="btn-go" onclick="startResearch()">調査を開始</button>
+      <a class="btn" href="/app">ダッシュボードに戻る</a>
+    </div>
+    <div class="hint" style="margin-top:10px">プランによって利用回数に上限があります。プラン情報は <a href="/app/account">アカウント</a> から確認できます。</div>
+  </div>
+
+  <div class="progress-card" id="progress-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong id="progress-title">収集中…</strong>
+      <div class="row">
+        <span class="muted" id="progress-status">running</span>
+        <button class="btn btn-danger" id="btn-cancel" onclick="cancelCurrent()" style="margin-left:8px;padding:4px 10px;font-size:.78rem;display:none">キャンセル</button>
+      </div>
+    </div>
+    <div class="eta-bar" id="eta-bar">
+      <span class="eta-phase" id="eta-phase">準備中</span>
+      <span class="eta-elapsed" id="eta-elapsed">0:00</span>
+      <span class="eta-remaining" id="eta-remaining">残り約15分</span>
+    </div>
+    <div class="progress-log" id="progress-log"></div>
+  </div>
+
+  <div class="result-wrap" id="result-wrap">
+    <div class="result-header">
+      <h2 class="result-title" id="result-title"></h2>
+      <div class="actions">
+        <button class="btn" id="btn-save" onclick="openSaveDialog()" style="display:none">📌 保存</button>
+        <button class="btn" id="btn-match" onclick="openMatchDialog()" style="display:none">🎯 生徒と照合</button>
+        <button class="btn" id="btn-stress" onclick="openStressDialog()" style="display:none">🧪 耐圧テスト</button>
+        <button class="btn" id="btn-phase" onclick="openPhaseDialog()" style="display:none">📅 段階別戦略</button>
+        <button class="btn" id="btn-more" onclick="toggleMoreDiagnostics()" style="display:none">⚙️ 追加診断 ▼</button>
+        <a class="btn" href="/app/research">+ 新しい調査</a>
+      </div>
+      <div id="more-diagnostics" style="display:none;margin-top:8px;padding:8px;background:var(--bg);border-radius:var(--radius-sm)">
+        <div class="muted" style="font-size:.76rem;margin-bottom:4px">v2 ノウハウ由来の個別診断:</div>
+        <button class="btn" onclick="openDisclosureDialog()">🎭 自己開示レベル</button>
+        <button class="btn" onclick="openCompetitionDialog()">🗺️ 競合マップ</button>
+        <button class="btn" onclick="openDensityDialog()">📊 情報密度チェック</button>
+      </div>
+    </div>
+    <div class="source-summary" id="source-summary"></div>
+    <div id="tag-section" style="display:none" class="tag-section"></div>
+    <div id="pdf-notice"></div>
+    <div id="result-body"></div>
+  </div>
+</main>
+
+<div class="modal-bg" id="save-bg" onclick="if(event.target.id==='save-bg')closeSaveDialog()">
+  <div class="modal">
+    <h3>📌 保存</h3>
+    <div id="save-body">読み込み中…</div>
+  </div>
+</div>
+
+<footer class="app-footer">AOリサーチ</footer>
+
+<script src="/shared/header.js"></script>
+<script>
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+let _me = null;
+let _currentRequestId = null;
+let _currentResult = null;
+let _pollTimer = null;
+let _etaTimer = null;
+let _etaStartMs = null;
+let _etaProgress = [];
+let _currentTags = [];
+let _pdfTab = 'url';
+
+const _PHASES = [
+  { keywords: ['全分析完了', '出典と「不明」'],  label: '最終整理中',         remaining: '約1分' },
+  { keywords: ['前年比', 'ニュース分析', '前年比分析完了'], label: 'ニュース分析中', remaining: '約2分' },
+  { keywords: ['StepC', '学科別', '学科情報抽出'],  label: '学科詳細を抽出中',  remaining: '約5分' },
+  { keywords: ['StepA/B', 'StepA', 'StepB', '並列抽出', '大学・学部情報'], label: '大学・学部情報を抽出中', remaining: '約8分' },
+  { keywords: ['Step2-10', '並列収集', 'サイト横断'], label: 'サイト横断収集中',  remaining: '約11分' },
+  { keywords: ['Step0', 'PDF', 'pdf'],           label: 'PDF・情報収集中',    remaining: '約13分' },
+];
+
+function _detectPhase(lines) {
+  const reversed = (lines || []).slice().reverse();
+  for (const line of reversed) {
+    for (const p of _PHASES) {
+      if (p.keywords.some(k => line.includes(k))) return p;
+    }
+  }
+  return { label: '準備中', remaining: '約15分' };
+}
+
+function _startEtaDisplay(createdAt) {
+  // SQLite形式 "YYYY-MM-DD HH:MM:SS" → ISO形式に変換してからparse
+  const iso = typeof createdAt === 'string' ? createdAt.replace(' ', 'T') : '';
+  _etaStartMs = (iso && new Date(iso).getTime()) || Date.now();
+  document.getElementById('eta-bar').style.display = 'flex';
+  if (_etaTimer) clearInterval(_etaTimer);
+  function _tick() {
+    const elapsed = Math.floor((Date.now() - _etaStartMs) / 1000);
+    const m = Math.floor(elapsed / 60), s = elapsed % 60;
+    document.getElementById('eta-elapsed').textContent = `${m}:${String(s).padStart(2,'0')} 経過`;
+    const phase = _detectPhase(_etaProgress);
+    document.getElementById('eta-phase').textContent = phase.label;
+    document.getElementById('eta-remaining').textContent =
+      elapsed > 1200 ? 'もうすぐ完了' : phase.remaining;
+  }
+  _tick(); // 即時1回実行（setIntervalの1秒待ちをなくす）
+  _etaTimer = setInterval(_tick, 1000);
+}
+
+function _stopEtaDisplay() {
+  if (_etaTimer) { clearInterval(_etaTimer); _etaTimer = null; }
+  document.getElementById('eta-bar').style.display = 'none';
+}
+
+(async function init() {
+  _me = await renderHeader(document.getElementById('app-header'));
+  if (!_me) { location.href = '/login'; return; }
+  // URLから既存リクエスト読み込み
+  const m = location.pathname.match(/\/app\/research\/([\w-]+)/);
+  if (m) loadRequest(m[1]);
+})();
+
+// PDF タブ切り替え
+function setPdfTab(tab) {
+  _pdfTab = tab;
+  document.getElementById('pdf-url-area').style.display  = tab === 'url'  ? '' : 'none';
+  document.getElementById('pdf-file-area').style.display = tab === 'file' ? '' : 'none';
+  document.getElementById('pdf-tab-url').classList.toggle('active',  tab === 'url');
+  document.getElementById('pdf-tab-file').classList.toggle('active', tab === 'file');
+}
+
+async function handlePdfDrop(file) {
+  if (!file) return;
+  const drop = document.getElementById('pdf-drop');
+  const label = document.getElementById('pdf-drop-label');
+  label.textContent = `アップロード中: ${file.name}…`;
+  drop.classList.remove('loaded');
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch('/api/upload/pdf', { method: 'POST', body: fd });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.status); }
+    const data = await r.json();
+    document.getElementById('f-pdf-text').value = data.text;
+    label.textContent = `✓ ${file.name}（${data.pages}ページ / ${data.char_count.toLocaleString()}文字${data.truncated ? ' — 先頭10万字を使用' : ''}）`;
+    drop.classList.add('loaded');
+  } catch (e) {
+    label.textContent = `エラー: ${e.message}`;
+    drop.classList.remove('loaded');
+  }
+}
+
+async function startResearch() {
+  const pdfText = _pdfTab === 'file' ? (document.getElementById('f-pdf-text').value || '') : '';
+  const pdfUrl  = _pdfTab === 'url'  ? document.getElementById('f-pdf').value.trim() : '';
+  const body = {
+    university:       document.getElementById('f-univ').value.trim(),
+    faculty:          document.getElementById('f-faculty').value.trim(),
+    department:       document.getElementById('f-dept').value.trim(),
+    admission_method: document.getElementById('f-method').value.trim(),
+    keywords:         document.getElementById('f-kw').value.trim(),
+    pdf_url:          pdfUrl,
+    pdf_text:         pdfText,
+  };
+  if (!body.university) { alert('大学名を入力してください'); return; }
+  if (!body.faculty)    { alert('学部を入力してください'); return; }
+  if (!body.department) { alert('学科を入力してください'); return; }
+  if (!pdfUrl && !pdfText) {
+    const ok = confirm(
+      'PDFが未指定です。\n\n' +
+      'PDFを指定しない場合:\n' +
+      '・処理時間が10〜25分かかる可能性\n' +
+      '・公式本体PDFを自動探索するが失敗することがある\n' +
+      '・結果の精度が下がる可能性\n\n' +
+      'PDFなしで続行しますか？\n（キャンセルするとPDFを指定できます）'
+    );
+    if (!ok) return;
+  }
+  document.getElementById('btn-go').disabled = true;
+  document.getElementById('progress-card').style.display = 'block';
+  document.getElementById('progress-title').textContent = '収集中…';
+  document.getElementById('progress-status').textContent = 'running';
+  document.getElementById('progress-log').innerHTML = '';
+  document.getElementById('result-wrap').style.display = 'none';
+  try {
+    const res = await fetch('/api/research', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.status); }
+    const data = await res.json();
+    _currentRequestId = data.request_id;
+    history.replaceState({}, '', `/app/research/${_currentRequestId}`);
+    _etaProgress = [];
+    _startEtaDisplay(new Date().toISOString());
+    pollUntilDone();
+  } catch (e) {
+    alert('開始失敗: ' + e.message);
+    document.getElementById('btn-go').disabled = false;
+  }
+}
+
+function pollUntilDone() {
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`/api/research/${_currentRequestId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const req = data.request;
+      document.getElementById('progress-status').textContent = req.status;
+      const log = document.getElementById('progress-log');
+      _etaProgress = req.progress || [];
+      log.innerHTML = _etaProgress.map(l => `<div class="line">${esc(l)}</div>`).join('');
+      log.scrollTop = log.scrollHeight;
+      // キャンセルボタン表示（pending/running時）
+      const cancelBtn = document.getElementById('btn-cancel');
+      if (cancelBtn) cancelBtn.style.display = (req.status === 'pending' || req.status === 'running') ? 'inline-flex' : 'none';
+      if (req.status === 'done') {
+        clearInterval(_pollTimer);
+        _stopEtaDisplay();
+        document.getElementById('btn-go').disabled = false;
+        document.getElementById('progress-title').textContent = '収集完了';
+        renderResult(req, data.result);
+      } else if (req.status === 'error') {
+        clearInterval(_pollTimer);
+        _stopEtaDisplay();
+        document.getElementById('btn-go').disabled = false;
+        document.getElementById('progress-title').textContent = 'エラー';
+        log.innerHTML += `<div class="line" style="color:var(--red)">${esc(req.error || 'unknown error')}</div>`;
+      }
+    } catch (_) {}
+  }, 2500);
+}
+
+async function cancelCurrent() {
+  if (!_currentRequestId) return;
+  if (!confirm('この調査をキャンセルしますか？')) return;
+  try {
+    const r = await fetch(`/api/research/${_currentRequestId}/cancel`, {method:'POST'});
+    if (!r.ok) { alert('キャンセル失敗'); return; }
+    alert('キャンセルしました。ページを再読み込みしてください');
+  } catch (e) { alert('キャンセル失敗: ' + e.message); }
+}
+
+async function loadRequest(rid) {
+  _currentRequestId = rid;
+  document.getElementById('progress-card').style.display = 'block';
+  document.getElementById('progress-title').textContent = '読み込み中…';
+  document.getElementById('btn-go').disabled = true;
+  try {
+    const r = await fetch(`/api/research/${rid}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const req = data.request;
+    document.getElementById('progress-status').textContent = req.status;
+    const log = document.getElementById('progress-log');
+    _etaProgress = req.progress || [];
+    log.innerHTML = _etaProgress.map(l => `<div class="line">${esc(l)}</div>`).join('');
+    log.scrollTop = log.scrollHeight;
+    document.getElementById('f-univ').value = req.university || '';
+    document.getElementById('f-faculty').value = req.faculty || '';
+    document.getElementById('f-dept').value = req.department || '';
+    document.getElementById('f-method').value = req.admission_method || '';
+    document.getElementById('f-kw').value = req.keywords || '';
+    document.getElementById('f-pdf').value = req.pdf_url || '';
+    if (req.status === 'done') {
+      renderResult(req, data.result);
+      document.getElementById('btn-go').disabled = false;
+    } else if (req.status === 'running' || req.status === 'pending') {
+      _startEtaDisplay(req.created_at);
+      pollUntilDone();
+    } else {
+      document.getElementById('btn-go').disabled = false;
+    }
+  } catch (e) {
+    document.getElementById('progress-log').innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`;
+    document.getElementById('btn-go').disabled = false;
+  }
+}
+
+const FACT_LABELS = {
+  campus:             'キャンパス',
+  formal_ao_name:     '正式名称',
+  quota:              '募集人数',
+  gpa_requirement:    '評定条件',
+  external_exam_requirements: '英語資格',
+  application_type:   '専願/併願',
+  application_period: '出願期間',
+  selection_schedule: '選考日程',
+  announcement_date:  '合格発表',
+  selection_methods:  '選考方法',
+  selection_phase_1:  '一次選考',
+  selection_phase_2:  '二次選考',
+  evaluation_criteria: '評価観点',
+  submitted_documents: '提出書類',
+  eligibility:        '出願資格・条件',
+  admission_policy:   'アドミッションポリシー',
+  ratio_history:      '倍率（年度別）',
+  features:           '総合型選抜の特徴',
+  difficulty_facts:   '難易度の手がかり',
+};
+
+const UNIQUENESS_LABELS = {
+  research_theme:         '研究テーマの独自性',
+  curriculum_structure:   'カリキュラム構造の独自性',
+  facility_system:        '制度・施設の独自性',
+  educational_philosophy: '教育思想の独自性',
+  career_connection:      '卒業後接続の独自性',
+};
+
+function formatValue(key, v) {
+  if (v == null || v === '') return esc('不明');
+  if (Array.isArray(v)) {
+    if (v.length === 0) return esc('不明');
+    if (typeof v[0] === 'string') return v.map(x => esc(x)).join(' / ');
+    return '<ul style="margin:0;padding-left:18px">' + v.map(x => `<li>${formatValue(key, x)}</li>`).join('') + '</ul>';
+  }
+  if (typeof v !== 'object') return esc(v);
+
+  // 値オブジェクトをフィールド別に整形
+  if (key === 'ratio_history' || key === 'quota_history' || key === 'applicants_history' || key === 'accepted_history') {
+    const years = Object.keys(v).sort().reverse();
+    return years.map(y => {
+      const entry = v[y];
+      if (entry == null) return '';
+      if (typeof entry === 'string') return `<div>${esc(y)}年度: ${esc(entry)}</div>`;
+      const val = entry.value || '不明';
+      const unit = entry.unit || '';
+      const st = entry.source_type || '';
+      const tag = unit ? `（${esc(unit)}）` : '';
+      const src = st ? ` <span class="muted" style="font-size:.75rem">[${esc(st)}]</span>` : '';
+      return `<div>${esc(y)}年度: ${esc(val)}${tag}${src}</div>`;
+    }).join('');
+  }
+  if (key === 'external_exam_requirements') {
+    const req = v.required;
+    const exams = v.exams || [];
+    const notes = v.notes || '';
+    const head = (req === true) ? '提出必須' : (req === false) ? '提出不要' : '必須/不要 不明';
+    const rows = exams.length ? '<ul style="margin:4px 0;padding-left:18px">' + exams.map(e =>
+      `<li>${esc(e.name || '')}: ${esc(e.score || '不明')}${e.validity ? ` / 有効期間 ${esc(e.validity)}` : ''}${e.notes ? ` — ${esc(e.notes)}` : ''}</li>`
+    ).join('') + '</ul>' : '';
+    return `<div><strong>${esc(head)}</strong></div>${rows}${notes ? `<div class="muted" style="font-size:.8rem">${esc(notes)}</div>` : ''}`;
+  }
+  if (key === 'submitted_documents') {
+    const common = v.common || [];
+    const cond = v.conditional || [];
+    let html = '';
+    if (common.length) html += '<div><strong>全員共通</strong><ul style="margin:2px 0;padding-left:18px">' + common.map(d => `<li>${esc(d)}</li>`).join('') + '</ul></div>';
+    if (cond.length) html += '<div><strong>条件付き</strong><ul style="margin:2px 0;padding-left:18px">' + cond.map(d => `<li>${esc(d.document || '')}${d.condition ? `（条件: ${esc(d.condition)}）` : ''}</li>`).join('') + '</ul></div>';
+    return html || esc('不明');
+  }
+  if (key === 'application_type') {
+    const lines = [];
+    if (v.intra_method)     lines.push(`同一方式内: ${esc(v.intra_method)}`);
+    if (v.intra_university) lines.push(`同一大学内: ${esc(v.intra_university)}`);
+    if (v.inter_university) lines.push(`他大学: ${esc(v.inter_university)}`);
+    if (v.notes)            lines.push(`<span class="muted" style="font-size:.8rem">${esc(v.notes)}</span>`);
+    return lines.join('<br>') || esc('不明');
+  }
+  if (key === 'admission_policy') {
+    const summary = v.summary || '';
+    const keywords = v.keywords || [];
+    return `${esc(summary)}${keywords.length ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">' + keywords.map(k => `<span style="font-size:.72rem;padding:2px 8px;background:var(--brand-light);color:var(--brand-blue);border-radius:10px">${esc(k)}</span>`).join('') + '</div>' : ''}`;
+  }
+  if (key === 'difficulty_facts') {
+    const ro = v.ratio_observations || '';
+    const notes = v.notes || '';
+    return [ro, notes].filter(Boolean).map(x => `<div>${esc(x)}</div>`).join('') || esc('不明');
+  }
+  // フォールバック: key:value 並べ
+  const keys = Object.keys(v);
+  if (!keys.length) return esc('不明');
+  return keys.map(k => `<div><span class="muted" style="font-size:.75rem">${esc(k)}:</span> ${formatValue(k, v[k])}</div>`).join('');
+}
+
+function formatReferences(key, refs) {
+  if (!Array.isArray(refs) || refs.length === 0) return '';
+  const rows = refs.map(r => {
+    const year = r.year ? `${esc(r.year)}年度: ` : '';
+    const label = r.source_label ? esc(r.source_label) : '非公式';
+    const val = r.value != null ? (typeof r.value === 'object' ? formatValue(key, r.value) : esc(r.value)) : '不明';
+    const url = r.source_url ? ` <a href="${esc(r.source_url)}" target="_blank" rel="noopener" style="font-size:.72rem">↗</a>` : '';
+    return `<div style="font-size:.82rem;color:var(--ink-soft);margin-top:2px">${year}${val} <span class="muted" style="font-size:.72rem">— ${label}${url}</span></div>`;
+  }).join('');
+  return `<div style="margin-top:6px;padding:6px 8px;background:var(--yellow-soft);border-left:3px solid var(--yellow);border-radius:4px"><div style="font-size:.72rem;font-weight:700;color:var(--yellow)">参考（非公式）</div>${rows}</div>`;
+}
+
+function formatReferenceAsMain(key, ref) {
+  if (!ref) return esc('不明');
+  const year = ref.year ? `${esc(ref.year)}年度: ` : '';
+  const label = ref.source_label ? esc(ref.source_label) : '非公式';
+  const url = ref.source_url ? ` <a href="${esc(ref.source_url)}" target="_blank" rel="noopener" style="font-size:.78rem">↗</a>` : '';
+  const val = ref.value != null ? (typeof ref.value === 'object' ? formatValue(key, ref.value) : esc(ref.value)) : '不明';
+  return `<div>${year}${val}</div><div class="muted" style="font-size:.72rem;margin-top:2px">出典: ${label}${url}</div>`;
+}
+
+function isObjectEffectivelyUnknown(obj) {
+  // external_exam_requirements = {required:null, exams:[], notes:"不明..."} のような「中身が空」パターンを検知
+  if (!obj || typeof obj !== 'object') return false;
+  const values = Object.values(obj);
+  if (values.length === 0) return true;
+  return values.every(v => {
+    if (v == null) return true;
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (t === '') return true;
+      return /^(不明|情報なし|要確認|—|-|n\/a)$/i.test(t);
+    }
+    if (Array.isArray(v)) return v.length === 0;
+    if (typeof v === 'object') return isObjectEffectivelyUnknown(v);
+    return false;
+  });
+}
+
+function renderResult(req, result) {
+  if (!result || !result.result) {
+    document.getElementById('result-wrap').style.display = 'block';
+    document.getElementById('result-body').innerHTML = '<div class="empty">結果がありません</div>';
+    return;
+  }
+  _currentResult = result;
+  const label = [req.university, req.faculty, req.department, req.admission_method].filter(Boolean).join(' ');
+  document.getElementById('result-title').textContent = label + ' の調査結果';
+
+  const summary = result.source_summary || {};
+  const total = summary.total || 0;
+  const kMerged = (result.result && result.result.knowledge_merged_count) || 0;
+  const summaryHtml = `
+    <div class="source-summary-item">出典: <strong>${total}件</strong></div>
+    <div class="source-summary-item">📄 公式PDF <strong>${summary.official_pdf || 0}</strong></div>
+    <div class="source-summary-item">🌐 公式HP <strong>${summary.official_html || 0}</strong></div>
+    <div class="source-summary-item">📰 補助 <strong>${summary.aggregator || 0}</strong></div>
+    ${kMerged > 0 ? `<div class="source-summary-item" title="過去のリサーチ結果から補完されたフィールド数">🧠 蓄積知識で <strong>${kMerged}件</strong> 補完</div>` : ''}
+    ${result.unknown_count > 0 ? `<div class="unknown-warn">⚠️ 不明 ${result.unknown_count}件</div>` : ''}
+  `;
+  document.getElementById('source-summary').innerHTML = summaryHtml;
+
+  // Feature 3: PDF取得状況通知
+  const dcLog = (result.result.data_collection_log || {})['PDF募集要項'] || {};
+  const dcKeys = Object.keys(dcLog);
+  let pdfNoticeHtml = '';
+  if (dcKeys.length > 0) {
+    // "2026(archive)" も2026取得済みとして扱う
+    const has2027 = dcKeys.some(k => k.startsWith('2027') && (dcLog[k] || '').startsWith('取得成功'));
+    const has2026 = dcKeys.some(k => k.startsWith('2026') && ((dcLog[k] || '').startsWith('取得成功') || (dcLog[k] || '').includes('Wayback')));
+    const allMissing = dcKeys.every(k => !(dcLog[k] || '').startsWith('取得成功') && !(dcLog[k] || '').includes('Wayback'));
+    if (allMissing) {
+      pdfNoticeHtml = '<div class="pdf-notice warn">⚠️ 公式募集要項PDFが取得できませんでした。大学公式サイトで直接ご確認ください。</div>';
+    } else if (!has2027 && has2026) {
+      pdfNoticeHtml = '<div class="pdf-notice info">ℹ️ 2027年度募集要項は未公表のため、2026年度データを参照しています。</div>';
+    }
+  }
+  document.getElementById('pdf-notice').innerHTML = pdfNoticeHtml;
+
+  const ud = (result.result.university_data) || {};
+  const unis = (ud.step_c || {}).universities || ud.universities || [];
+  const u = unis[0] || {};
+  const ann = u._annotated || {};
+
+  const references = u.references || {};
+
+  let html = `<div class="card"><h3 class="card-title">${esc(u.university || req.university)} ${esc(u.faculty || req.faculty)} ${esc(u.department || req.department)}</h3>`;
+  if (u.campus || u.formal_ao_name || u.pdf_confirmed != null) {
+    const bits = [];
+    if (u.campus)          bits.push(`キャンパス: <strong>${esc(u.campus)}</strong>`);
+    if (u.formal_ao_name)  bits.push(`正式名称: <strong>${esc(u.formal_ao_name)}</strong>`);
+    if (u.pdf_confirmed != null) bits.push(u.pdf_confirmed ? '<span style="color:var(--green)">✓ 入試要項本体PDF確認済</span>' : '<span style="color:var(--yellow)">⚠ 入試要項本体PDF未確認</span>');
+    html += `<div class="muted" style="font-size:.82rem;margin-bottom:8px">${bits.join(' / ')}</div>`;
+  }
+  html += '<table class="fact-table"><tbody>';
+  for (const [key, label] of Object.entries(FACT_LABELS)) {
+    const item = ann[key];
+    // admission_policy はオブジェクト版を優先（旧shimで文字列に平坦化されている）
+    const rawFromUni = key === 'admission_policy' ? (u.admission_policy_obj || u[key]) : u[key];
+    let valueHtml, conf, sources = [], usedRefAsMain = false;
+    // annotated で不明、かつ生データにも無ければ「不明」表示
+    const rawIsUnknown = rawFromUni == null ||
+                        (typeof rawFromUni === 'string' && /^(不明|情報なし|要確認|—|-|n\/a)$/i.test(rawFromUni.trim())) ||
+                        (Array.isArray(rawFromUni) && rawFromUni.length === 0) ||
+                        (typeof rawFromUni === 'object' && !Array.isArray(rawFromUni) && isObjectEffectivelyUnknown(rawFromUni));
+    const refsForKey = Array.isArray(references[key]) ? references[key] : [];
+    if (!item || item.label === '不明' || rawIsUnknown) {
+      // 主値が不明でも、非公式参考値があれば主表示へ昇格
+      if (refsForKey.length > 0) {
+        valueHtml = formatReferenceAsMain(key, refsForKey[0]);
+        conf = 'low';
+        usedRefAsMain = true;
+      } else {
+        valueHtml = '<span class="unknown-cell">不明</span>';
+        conf = 'unknown';
+      }
+    } else {
+      const displayValue = (key === 'admission_policy' && rawFromUni && typeof rawFromUni === 'object') ? rawFromUni
+                         : (item.value != null ? item.value : rawFromUni);
+      valueHtml = formatValue(key, displayValue);
+      conf = item.confidence || 'unknown';
+      sources = item.provenance || [];
+    }
+    const confLabel = {high:'高', medium:'中', low:'低', unknown:'?'}[conf];
+    const confText = usedRefAsMain ? '参考（非公式）' : `出典 ${confLabel}`;
+    const sourceHtml = sources.length ? `<div class="source-list">${
+      sources.slice(0, 5).map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener" class="source-link ${esc(s.type)}">${esc(typeLabel(s.type))}${s.year ? ' ' + s.year : ''} ↗</a>`).join('')
+    }</div>` : '';
+    // 主表示に使った最初の 1 件を除いて残りを参考表示
+    const remainingRefs = usedRefAsMain ? refsForKey.slice(1) : refsForKey;
+    const refsHtml = formatReferences(key, remainingRefs);
+    // 知識ベースから補完された場合のバッジ
+    const kFills = u.knowledge_fills || {};
+    const kFill = kFills[key];
+    const knowledgeBadge = kFill
+      ? `<span class="conf-badge" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc;margin-left:4px" title="過去のリサーチ結果から補完（${esc(kFill.updated_at || '')}）">🧠 蓄積知識</span>`
+      : '';
+    // Feature 2: quota/ratio_history の「不明」コンテキスト注記
+    let unpublishedBadge = '';
+    let extraNote = '';
+    if (key === 'quota') {
+      const rawQ = u.quota;
+      if (typeof rawQ === 'string' && rawQ.includes('未公表')) {
+        unpublishedBadge = '<span class="unpublished-badge">前年度参照</span>';
+      }
+      if (conf === 'unknown') {
+        extraNote = '<div class="unknown-note">2027年度は多くの大学で募集人数が未公表のため、取得できない場合があります。公式発表後にご確認ください。</div>';
+      }
+    }
+    if (key === 'ratio_history') {
+      const rh = u.ratio_history || {};
+      const rhVals = Object.values(rh);
+      const allRhUnknown = rhVals.length === 0 || rhVals.every(v => {
+        const sv = typeof v === 'string' ? v : ((v && v.value) || '');
+        return !sv || /^(不明|情報なし|—|-|n\/a)$/i.test(String(sv).trim());
+      });
+      if (allRhUnknown) {
+        extraNote = '<div class="unknown-note">倍率は大学・予備校サイトが非公表にしている場合があります。過去年度の公開情報がある場合は参考値として下に表示されます。</div>';
+      }
+    }
+    html += `<tr><th>${esc(label)}</th><td>${valueHtml}${unpublishedBadge}<span class="conf-badge conf-${conf}">${esc(confText)}</span>${knowledgeBadge}${sourceHtml}${refsHtml}${extraNote}</td></tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  // 分析パート（事実ベース）
+  if (u.inferred_persona || (u.comparison_axes && u.comparison_axes.length)) {
+    html += '<div class="card" style="margin-top:12px"><h3 class="card-title">分析（一次情報から読める範囲）</h3>';
+    if (u.inferred_persona) {
+      const tend = u.inferred_persona.tendency || '';
+      const basis = u.inferred_persona.basis || '';
+      html += `<div><strong>読み取れる人物像</strong>: ${esc(tend) || esc('不明')}</div>`;
+      if (basis) html += `<div class="muted" style="font-size:.82rem;margin-top:4px">根拠: ${esc(basis)}</div>`;
+    }
+    if (u.comparison_axes && u.comparison_axes.length) {
+      html += `<div style="margin-top:10px"><strong>比較に使えそうな軸</strong>: ${u.comparison_axes.map(a => `<span style="font-size:.76rem;padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;margin-right:4px">${esc(a)}</span>`).join('')}</div>`;
+    }
+    html += '</div>';
+  }
+
+  // 独自性5レイヤー
+  if (u.uniqueness_layers && typeof u.uniqueness_layers === 'object') {
+    html += '<div class="card" style="margin-top:12px"><h3 class="card-title">🎯 その大学でしかできないこと（独自性5レイヤー）</h3>';
+    html += '<table class="fact-table"><tbody>';
+    for (const [k, label] of Object.entries(UNIQUENESS_LABELS)) {
+      const layer = u.uniqueness_layers[k];
+      if (!layer || typeof layer !== 'object') continue;
+      const level = (layer.level || '不明').toString();
+      const levelClass = level === '高' ? 'conf-high' : level === '中' ? 'conf-medium' : level === '低' ? 'conf-low' : 'conf-unknown';
+      const reasoning = layer.reasoning || '不明';
+      html += `<tr><th>${esc(label)}</th><td><span class="conf-badge ${levelClass}">${esc(level)}</span><div style="margin-top:4px">${esc(reasoning)}</div></td></tr>`;
+    }
+    html += '</tbody></table></div>';
+  }
+
+  // 志望理由書素材
+  if (u.specific_materials && typeof u.specific_materials === 'object') {
+    const sm = u.specific_materials;
+    const hasData = (sm.research_labs?.length || sm.courses?.length || sm.systems?.length);
+    if (hasData) {
+      html += '<div class="card" style="margin-top:12px"><h3 class="card-title">📚 志望理由書・面接で使える素材（固有名詞）</h3>';
+      if (sm.research_labs && sm.research_labs.length) {
+        html += '<div style="margin-top:8px"><strong>研究室・ゼミ</strong><ul style="margin:4px 0;padding-left:18px">';
+        sm.research_labs.forEach(r => {
+          const url = r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="font-size:.72rem">↗</a>` : '';
+          const prof = r.professor ? `（${esc(r.professor)}）` : '';
+          const theme = r.theme ? `: ${esc(r.theme)}` : '';
+          html += `<li><strong>${esc(r.name || '')}</strong>${prof}${theme}${url}</li>`;
+        });
+        html += '</ul></div>';
+      }
+      if (sm.courses && sm.courses.length) {
+        html += '<div style="margin-top:8px"><strong>科目・演習・プロジェクト</strong><ul style="margin:4px 0;padding-left:18px">';
+        sm.courses.forEach(c => {
+          html += `<li><strong>${esc(c.name || '')}</strong>${c.description ? `: ${esc(c.description)}` : ''}</li>`;
+        });
+        html += '</ul></div>';
+      }
+      if (sm.systems && sm.systems.length) {
+        html += '<div style="margin-top:8px"><strong>制度・プログラム</strong><ul style="margin:4px 0;padding-left:18px">';
+        sm.systems.forEach(s => {
+          const url = s.url ? ` <a href="${esc(s.url)}" target="_blank" rel="noopener" style="font-size:.72rem">↗</a>` : '';
+          html += `<li><strong>${esc(s.name || '')}</strong>${s.description ? `: ${esc(s.description)}` : ''}${url}</li>`;
+        });
+        html += '</ul></div>';
+      }
+      html += '</div>';
+    }
+  }
+
+  // キーフレーズ & 避けるべき表現
+  if ((u.key_phrases && u.key_phrases.length) || (u.avoided_phrases && u.avoided_phrases.length)) {
+    html += '<div class="card" style="margin-top:12px"><h3 class="card-title">💡 語彙ガイド</h3>';
+    if (u.key_phrases && u.key_phrases.length) {
+      html += '<div style="margin-top:6px"><strong style="color:var(--green)">この大学が繰り返し使う語彙（志望理由書で拾うと効く）</strong><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">';
+      u.key_phrases.forEach(p => {
+        html += `<span style="font-size:.78rem;padding:2px 10px;background:var(--green-soft);color:var(--green);border-radius:12px">${esc(p)}</span>`;
+      });
+      html += '</div></div>';
+    }
+    if (u.avoided_phrases && u.avoided_phrases.length) {
+      html += '<div style="margin-top:10px"><strong style="color:var(--red)">この大学では弱くなる表現（避ける）</strong><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">';
+      u.avoided_phrases.forEach(p => {
+        html += `<span style="font-size:.78rem;padding:2px 10px;background:var(--red-soft);color:var(--red);border-radius:12px;text-decoration:line-through">${esc(p)}</span>`;
+      });
+      html += '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // 面接テーマ・接続アンカー
+  if ((u.interview_topics && u.interview_topics.length) || (u.match_anchors && u.match_anchors.length)) {
+    html += '<div class="card" style="margin-top:12px"><h3 class="card-title">🎤 面接想定テーマ・接続アンカー</h3>';
+    if (u.interview_topics && u.interview_topics.length) {
+      html += '<div style="margin-top:6px"><strong>面接で問われやすいテーマ</strong><ul style="margin:4px 0;padding-left:18px">';
+      u.interview_topics.forEach(t => { html += `<li>${esc(t)}</li>`; });
+      html += '</ul></div>';
+    }
+    if (u.match_anchors && u.match_anchors.length) {
+      html += '<div style="margin-top:8px"><strong>この大学と強く接続する経験・問題意識</strong><ul style="margin:4px 0;padding-left:18px">';
+      u.match_anchors.forEach(a => { html += `<li>${esc(a)}</li>`; });
+      html += '</ul></div>';
+    }
+    html += '</div>';
+  }
+
+  // ニュース
+  const news = result.result.news_data || {};
+  if (news.summary || (news.hot_topics || []).length) {
+    html += `<div class="card news-section"><h3 class="card-title">前年比・ニュース</h3>`;
+    if (news.summary) html += `<div class="summary-box">${esc(news.summary)}</div>`;
+    const topics = news.hot_topics || [];
+    if (topics.length) {
+      html += '<ol style="padding-left:20px;color:var(--ink-soft);">';
+      topics.forEach(t => {
+        if (typeof t === 'string') {
+          html += `<li>${esc(t)}</li>`;
+          return;
+        }
+        // {rank, topic, description, source, url} 形式と {title, url} 形式の両対応
+        const title   = t.title || t.topic || '';
+        const desc    = t.description || '';
+        const source  = t.source ? ` <span class="muted" style="font-size:.78rem">— ${esc(t.source)}</span>` : '';
+        const urlLink = t.url ? ` <a href="${esc(t.url)}" target="_blank" rel="noopener" style="font-size:.78rem">↗</a>` : '';
+        html += `<li style="margin-bottom:6px"><strong>${esc(title)}</strong>${source}${urlLink}`;
+        if (desc) html += `<div class="muted" style="font-size:.82rem;margin-top:2px">${esc(desc)}</div>`;
+        html += '</li>';
+      });
+      html += '</ol>';
+    }
+    if (Array.isArray(news.insights) && news.insights.length) {
+      html += '<div style="margin-top:12px"><strong>マーケティング示唆</strong><ul style="margin:6px 0;padding-left:18px">';
+      news.insights.forEach(x => { html += `<li>${esc(x)}</li>`; });
+      html += '</ul></div>';
+    }
+    if (Array.isArray(news.key_themes) && news.key_themes.length) {
+      html += `<div style="margin-top:8px"><strong>主要テーマ</strong>: ${news.key_themes.map(x => `<span style="font-size:.76rem;padding:2px 8px;background:var(--brand-light);color:var(--brand-blue);border-radius:10px;margin-right:4px">${esc(x)}</span>`).join('')}</div>`;
+    }
+    if (news.trend_direction) {
+      html += `<div style="margin-top:6px;font-size:.82rem"><strong>トレンド方向</strong>: ${esc(news.trend_direction)}</div>`;
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('result-body').innerHTML = html;
+  document.getElementById('result-wrap').style.display = 'block';
+
+  // タグを読み込んで表示
+  _currentTags = req.tags || [];
+  renderTags();
+
+  // 保存ボタンはプランで判定
+  if (_me?.plan?.features?.save) {
+    document.getElementById('btn-save').style.display = 'inline-flex';
+  }
+  // 照合ボタンは students プラン（tutor 以上）で有効
+  if (_me?.plan?.features?.students) {
+    document.getElementById('btn-match').style.display = 'inline-flex';
+    document.getElementById('btn-stress').style.display = 'inline-flex';
+    document.getElementById('btn-phase').style.display = 'inline-flex';
+    document.getElementById('btn-more').style.display = 'inline-flex';
+  }
+}
+
+function toggleMoreDiagnostics() {
+  const box = document.getElementById('more-diagnostics');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── タグ機能 ──────────────────────────────────────────────────────────────────
+function renderTags() {
+  const sec = document.getElementById('tag-section');
+  if (!_currentRequestId) { sec.style.display = 'none'; return; }
+  sec.style.display = 'flex';
+  const chips = _currentTags.map(t =>
+    `<span class="tag-chip">${esc(t)}<span class="rm" onclick="removeTag('${esc(t)}')" title="削除">×</span></span>`
+  ).join('');
+  sec.innerHTML = chips +
+    `<input class="tag-input" id="tag-input" placeholder="+ タグ追加" maxlength="20"
+      onkeydown="if(event.key==='Enter'||event.key===','){event.preventDefault();addTagFromInput()}"
+      onblur="addTagFromInput()">`;
+}
+
+async function addTagFromInput() {
+  const el = document.getElementById('tag-input');
+  if (!el) return;
+  const val = el.value.trim().replace(/,/g, '');
+  el.value = '';
+  if (!val || _currentTags.includes(val)) return;
+  _currentTags = [..._currentTags, val];
+  renderTags();
+  await saveTags();
+}
+
+async function removeTag(t) {
+  _currentTags = _currentTags.filter(x => x !== t);
+  renderTags();
+  await saveTags();
+}
+
+async function saveTags() {
+  if (!_currentRequestId) return;
+  try {
+    await fetch(`/api/research/${_currentRequestId}/tags`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ tags: _currentTags }),
+    });
+  } catch (_) {}
+}
+
+function _openSimpleModal(title, bodyHtml) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,38,87,.4);display:flex;align-items:center;justify-content:center;z-index:100';
+  modal.innerHTML = `<div style="background:#fff;padding:24px;border-radius:var(--radius-lg);width:680px;max-width:94vw;max-height:92vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0;color:var(--brand-navy)">${esc(title)}</h3>
+      <button class="btn" onclick="this.closest('[style*=\\'position:fixed\\']').remove()">×</button>
+    </div>
+    ${bodyHtml}
+    <div id="_modal-result" style="margin-top:14px"></div>
+  </div>`;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+async function openDisclosureDialog() {
+  let students = [];
+  try { students = await (await fetch('/api/students')).json(); } catch (_) {}
+  const m = _openSimpleModal('🎭 自己開示レベル判定', `
+    <p class="muted" style="font-size:.82rem">志望理由書/活動報告の自己開示レベルを1〜4で判定。過剰開示への警告＋改善アドバイス。</p>
+    <div class="field" style="margin-top:8px">
+      <label>生徒（任意）</label>
+      <select id="d-student" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <option value="">（選ばない）</option>
+        ${students.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>ドラフト本文 <span class="muted" style="font-size:.72rem">（50〜8000字）</span></label>
+      <textarea id="d-draft" rows="10" style="width:100%"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-primary" id="d-go">判定する</button>
+    </div>
+  `);
+  m.querySelector('#d-go').onclick = async () => {
+    const draft = m.querySelector('#d-draft').value.trim();
+    if (draft.length < 50) { alert('50字以上必要'); return; }
+    const sid = m.querySelector('#d-student').value;
+    const box = m.querySelector('#_modal-result');
+    box.innerHTML = '<div class="muted">判定中…</div>';
+    try {
+      const r = await fetch('/api/diagnosis/disclosure_level', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({draft_text: draft, student_id: sid ? Number(sid) : null}),
+      });
+      if (!r.ok) { const e = await r.json(); box.innerHTML = `<div style="color:var(--red)">${esc(e.detail || r.status)}</div>`; return; }
+      const data = await r.json();
+      const d = data.diagnosis || {};
+      const levelCls = {'1':'conf-low', '2':'conf-medium', '3':'conf-high', '4':'conf-low'}[String(d.level)] || 'conf-unknown';
+      let html = `<div class="card">
+        <h4 style="margin:0 0 4px">レベル <span class="conf-badge ${levelCls}">${esc(d.level_label || '?')} (Lv.${esc(d.level || '?')})</span></h4>
+        <div class="muted" style="font-size:.78rem">差別化への寄与: ${esc(d.differentiation_impact || '')}</div>
+        <div style="margin-top:8px">${esc(d.reasoning || '')}</div>`;
+      if (d.indicators?.length) html += '<div style="margin-top:8px"><strong>判定の手がかり</strong><ul style="padding-left:18px">' + d.indicators.map(x => `<li>${esc(x)}</li>`).join('') + '</ul></div>';
+      if (d.level_4_warnings?.length) html += `<div style="margin-top:8px;padding:8px;background:var(--red-soft);border-radius:var(--radius-sm)"><strong style="color:var(--red)">⚠️ 過剰開示の疑い</strong><ul style="padding-left:18px;margin:4px 0">` + d.level_4_warnings.map(x => `<li>${esc(x)}</li>`).join('') + '</ul></div>';
+      if (d.advice) html += `<div style="margin-top:8px"><strong>アドバイス</strong><div>${esc(d.advice)}</div></div>`;
+      if (d.alternative_differentiation) html += `<div style="margin-top:8px"><strong>代替戦略（開示に消極的な場合）</strong><div>${esc(d.alternative_differentiation)}</div></div>`;
+      html += '</div>';
+      box.innerHTML = html;
+    } catch (e) { box.innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`; }
+  };
+}
+
+async function openCompetitionDialog() {
+  let students = [];
+  try { students = await (await fetch('/api/students')).json(); } catch (_) { alert('生徒一覧取得失敗'); return; }
+  if (!students.length) { alert('まず生徒を追加してください'); return; }
+  const m = _openSimpleModal('🗺️ 競合マップ診断', `
+    <p class="muted" style="font-size:.82rem">受験生のテーマと頻出テーマを照合、ケースA/B/C/D判定＋戦略提示。</p>
+    <div class="field">
+      <label>生徒を選択</label>
+      <select id="c-student" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+        ${students.map(s => `<option value="${s.id}">${esc(s.name)}${s.profile_experience ? '' : ' (プロファイル未入力)'}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-primary" id="c-go">診断する</button>
+    </div>
+  `);
+  m.querySelector('#c-go').onclick = async () => {
+    const sid = Number(m.querySelector('#c-student').value);
+    const box = m.querySelector('#_modal-result');
+    box.innerHTML = '<div class="muted">診断中…</div>';
+    try {
+      const r = await fetch('/api/diagnosis/competition_map', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({student_id: sid, request_id: _currentRequestId}),
+      });
+      if (!r.ok) { const e = await r.json(); box.innerHTML = `<div style="color:var(--red)">${esc(e.detail || r.status)}</div>`; return; }
+      const data = await r.json();
+      const d = data.diagnosis || {};
+      let html = `<div class="card">
+        <div><strong>ケース判定</strong>: ${esc(d.case || '?')}</div>
+        <div style="margin-top:4px"><strong>実績レベル</strong>: ${esc(d.achievement_level_assessment || '?')}</div>
+        <div style="margin-top:4px"><strong>テーマ要約</strong>: ${esc(d.student_theme_summary || '')}</div>
+        <div style="margin-top:8px;padding:8px;background:var(--brand-light);border-radius:var(--radius-sm)"><strong>推奨戦略</strong>: ${esc(d.recommended_strategy || '')}</div>`;
+      if (d.frequent_theme_overlap?.length) {
+        html += '<div style="margin-top:8px"><strong>頻出テーマとの重複</strong><ul style="padding-left:18px">';
+        d.frequent_theme_overlap.forEach(t => {
+          const cls = t.overlap_level === '高' ? 'conf-low' : t.overlap_level === '中' ? 'conf-medium' : 'conf-high';
+          html += `<li>${esc(t.frequent_theme || '')} <span class="conf-badge ${cls}">${esc(t.overlap_level || '')}</span><div class="muted" style="font-size:.78rem">${esc(t.note || '')}</div></li>`;
+        });
+        html += '</ul></div>';
+      }
+      if (d.concrete_steps?.length) {
+        html += '<div style="margin-top:8px"><strong>具体アクション</strong><ol style="padding-left:18px">' + d.concrete_steps.map(x => `<li>${esc(x)}</li>`).join('') + '</ol></div>';
+      }
+      if (d.topic_shift_candidates?.length) {
+        html += '<div style="margin-top:8px"><strong>土俵転換候補（ケースBの場合）</strong>';
+        d.topic_shift_candidates.forEach(t => {
+          html += `<div style="padding:6px;margin-top:4px;border-left:3px solid var(--brand-blue);background:var(--bg)"><strong>${esc(t.theme || '')}</strong><div class="muted" style="font-size:.78rem">受験生適合: ${esc(t.why_fits_student || '')}</div><div class="muted" style="font-size:.78rem">大学適合: ${esc(t.why_fits_university || '')}</div></div>`;
+        });
+        html += '</div>';
+      }
+      if (d.warnings?.length) {
+        html += '<div style="margin-top:8px;padding:8px;background:var(--yellow-soft)"><strong style="color:var(--yellow)">⚠️ 注意</strong><ul style="padding-left:18px;margin:4px 0">' + d.warnings.map(x => `<li>${esc(x)}</li>`).join('') + '</ul></div>';
+      }
+      html += '</div>';
+      box.innerHTML = html;
+    } catch (e) { box.innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`; }
+  };
+}
+
+async function openDensityDialog() {
+  const m = _openSimpleModal('📊 情報密度チェック', `
+    <p class="muted" style="font-size:.82rem">ドラフトの固有名詞・数字・引用・内部情報・専門用語を抽出、調べ込み度を数値化＋改善提案。</p>
+    <div class="field">
+      <label>ドラフト本文</label>
+      <textarea id="den-draft" rows="10" style="width:100%"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-primary" id="den-go">チェック</button>
+    </div>
+  `);
+  m.querySelector('#den-go').onclick = async () => {
+    const draft = m.querySelector('#den-draft').value.trim();
+    if (draft.length < 50) { alert('50字以上必要'); return; }
+    const box = m.querySelector('#_modal-result');
+    box.innerHTML = '<div class="muted">計測中…</div>';
+    try {
+      const r = await fetch('/api/diagnosis/density_check', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({draft_text: draft, request_id: _currentRequestId}),
+      });
+      if (!r.ok) { const e = await r.json(); box.innerHTML = `<div style="color:var(--red)">${esc(e.detail || r.status)}</div>`; return; }
+      const data = await r.json();
+      const d = data.diagnosis || {};
+      const c = d.counts || {};
+      const score = Number(d.density_score) || 0;
+      const scoreCls = score >= 20 ? 'conf-high' : score >= 10 ? 'conf-medium' : 'conf-low';
+      let html = `<div class="card">
+        <h4 style="margin:0 0 4px">密度スコア <span class="conf-badge ${scoreCls}">${esc(String(d.density_score || '?'))}</span></h4>
+        <div class="muted" style="font-size:.82rem">${esc(d.interpretation || '')}</div>
+        <table class="fact-table" style="margin-top:8px"><tbody>
+          <tr><th>固有名詞</th><td>${esc(String(c.named_entities || 0))}</td></tr>
+          <tr><th>数字・データ</th><td>${esc(String(c.numbers_data || 0))}</td></tr>
+          <tr><th>引用</th><td>${esc(String(c.citations || 0))}</td></tr>
+          <tr><th>内部情報</th><td>${esc(String(c.internal_info || 0))}</td></tr>
+          <tr><th>専門用語</th><td>${esc(String(c.technical_terms || 0))}</td></tr>
+        </tbody></table>`;
+      const found = d.found_entities || {};
+      for (const [k, label] of [['named_entities','固有名詞'],['numbers_data','数字'],['citations','引用'],['internal_info','内部情報'],['technical_terms','専門用語']]) {
+        const arr = found[k];
+        if (Array.isArray(arr) && arr.length) {
+          html += `<div style="margin-top:6px;font-size:.82rem"><strong>${esc(label)}検出</strong>: ${arr.map(esc).join(' / ')}</div>`;
+        }
+      }
+      if (d.quality_issues?.length) {
+        html += '<div style="margin-top:8px;padding:8px;background:var(--yellow-soft)"><strong style="color:var(--yellow)">質的問題</strong><ul style="padding-left:18px;margin:4px 0">' + d.quality_issues.map(x => `<li>${esc(x)}</li>`).join('') + '</ul></div>';
+      }
+      if (d.improvement_suggestions?.length) {
+        html += '<div style="margin-top:8px"><strong>改善提案</strong><ul style="padding-left:18px">';
+        d.improvement_suggestions.forEach(s => { html += `<li><strong>${esc(s.action || '')}</strong><div class="muted" style="font-size:.78rem">${esc(s.why || '')}</div></li>`; });
+        html += '</ul></div>';
+      }
+      html += '</div>';
+      box.innerHTML = html;
+    } catch (e) { box.innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`; }
+  };
+}
+
+async function openMatchDialog() {
+  if (!_me?.plan?.features?.students) {
+    alert('生徒との照合機能は Tutor プラン以上で利用できます');
+    return;
+  }
+  let students = [];
+  try { students = await (await fetch('/api/students')).json(); }
+  catch (_) { alert('生徒一覧の取得失敗'); return; }
+  if (!students.length) {
+    alert('まず /app/students で生徒を追加してください');
+    return;
+  }
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,38,87,.4);display:flex;align-items:center;justify-content:center;z-index:100';
+  modal.innerHTML = `
+    <div style="background:#fff;padding:24px;border-radius:var(--radius-lg);width:540px;max-width:94vw;max-height:92vh;overflow:auto">
+      <h3 style="margin:0 0 12px;color:var(--brand-navy)">🎯 生徒と照合（マッチ度診断）</h3>
+      <p class="muted" style="font-size:.82rem">この大学・学科が、選んだ生徒とどのくらい合うか診断します（マッチ度100点+必然性80点満点、合格ロジックに基づく）。</p>
+      <div id="stu-list" style="margin-top:12px">
+        ${students.map(s => {
+          const hasProfile = !!(s.profile_experience || s.profile_concerns || s.profile_future);
+          return `<div class="student-pick ${hasProfile ? '' : 'disabled'}" data-id="${s.id}" style="${hasProfile ? '' : 'opacity:.5'}">${esc(s.name)} ${hasProfile ? '' : '<span class="muted" style="font-size:.72rem">（プロファイル未入力）</span>'}</div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="m-cancel">キャンセル</button>
+        <button class="btn btn-primary" id="m-go">診断する</button>
+      </div>
+      <div id="m-result" style="margin-top:14px"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  let selectedId = null;
+  modal.querySelectorAll('.student-pick').forEach(el => {
+    if (el.classList.contains('disabled')) return;
+    el.addEventListener('click', () => {
+      modal.querySelectorAll('.student-pick').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedId = Number(el.dataset.id);
+    });
+  });
+  modal.querySelector('#m-cancel').onclick = () => modal.remove();
+  modal.querySelector('#m-go').onclick = async () => {
+    if (!selectedId) { alert('生徒を選んでください'); return; }
+    const box = modal.querySelector('#m-result');
+    box.innerHTML = '<div class="muted">診断中…（LLM 推論に10-30秒）</div>';
+    try {
+      const r = await fetch('/api/diagnosis/match', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({student_id: selectedId, request_id: _currentRequestId}),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({detail: r.status}));
+        box.innerHTML = `<div style="color:var(--red)">診断失敗: ${esc(e.detail || r.status)}</div>`;
+        return;
+      }
+      const data = await r.json();
+      renderDiagnosis(box, data);
+    } catch (e) {
+      box.innerHTML = `<div style="color:var(--red)">診断失敗: ${esc(e.message)}</div>`;
+    }
+  };
+}
+
+function renderDiagnosis(container, data) {
+  const d = data.diagnosis || {};
+  const ms = d.match_score || {};
+  const ns = d.necessity_score || {};
+  const mp = d.map_position || {};
+
+  const scoreRow = (label, obj, max) => {
+    if (!obj) return '';
+    const s = Number(obj.score ?? 0);
+    const pct = Math.min(100, Math.round((s / max) * 100));
+    const cls = pct >= 70 ? 'conf-high' : pct >= 40 ? 'conf-medium' : 'conf-low';
+    return `<tr>
+      <th style="width:35%">${esc(label)}</th>
+      <td><span class="conf-badge ${cls}">${s}/${max}</span>
+        <div class="muted" style="font-size:.78rem;margin-top:4px">${esc(obj.reasoning || '')}</div></td>
+    </tr>`;
+  };
+
+  let html = `
+    <div class="card" style="margin-top:14px;background:var(--brand-light)">
+      <h3 style="margin:0 0 8px;color:var(--brand-navy)">マッチ度診断 & 必然性スコア</h3>
+      <div class="muted" style="font-size:.72rem">${esc(data.model?.provider || '')}/${esc(data.model?.model || '')} で診断</div>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <h4 style="margin:0 0 6px">📊 マッチ度 ${esc(String(ms.total ?? '?'))}/100</h4>
+      <div class="muted" style="font-size:.82rem;margin-bottom:8px">${esc(ms.interpretation || '')}</div>
+      <table class="fact-table"><tbody>
+        ${scoreRow('研究テーマ',       ms.research_theme, 20)}
+        ${scoreRow('カリキュラム構造', ms.curriculum_structure, 20)}
+        ${scoreRow('AP 接続',         ms.admission_policy, 15)}
+        ${scoreRow('制度・施設',       ms.facility_system, 15)}
+        ${scoreRow('教員・指導体制',   ms.teaching_support, 15)}
+        ${scoreRow('卒業後接続',       ms.career_connection, 15)}
+      </tbody></table>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <h4 style="margin:0 0 6px">🎯 必然性 ${esc(String(ns.total ?? '?'))}/80</h4>
+      <div class="muted" style="font-size:.82rem;margin-bottom:8px">${esc(ns.interpretation || '')}</div>
+      <table class="fact-table"><tbody>
+        ${scoreRow('経験必然性',   ns.experience_necessity, 20)}
+        ${scoreRow('課題必然性',   ns.issue_necessity, 20)}
+        ${scoreRow('大学必然性',   ns.university_necessity, 20)}
+        ${scoreRow('将来必然性',   ns.future_necessity, 20)}
+      </tbody></table>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <h4 style="margin:0 0 6px">🗺️ 2軸マップでの位置: ${esc(mp.type || '不明')}</h4>
+      <div>${esc(mp.note || '')}</div>
+    </div>`;
+
+  if (Array.isArray(d.strong_connections) && d.strong_connections.length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 6px">💚 接続が強いポイント</h4><ul style="padding-left:18px">';
+    d.strong_connections.forEach(c => {
+      html += `<li><strong>${esc(c.student_point || '')}</strong> ↔ ${esc(c.university_point || '')}${c.reason ? `<div class="muted" style="font-size:.78rem">${esc(c.reason)}</div>` : ''}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  if (Array.isArray(d.weak_points) && d.weak_points.length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 6px">⚠️ 補強すべきポイント</h4><ul style="padding-left:18px">';
+    d.weak_points.forEach(w => {
+      html += `<li><strong>${esc(w.description || '')}</strong>${w.how_to_fix ? `<div class="muted" style="font-size:.78rem">→ ${esc(w.how_to_fix)}</div>` : ''}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  if (d.four_step_materials && typeof d.four_step_materials === 'object') {
+    const fs = d.four_step_materials;
+    html += `<div class="card" style="margin-top:10px"><h4 style="margin:0 0 6px">📝 志望理由書の4ステップ素材（経験→社会課題→大学→将来）</h4>
+      <table class="fact-table"><tbody>
+        <tr><th>経験</th><td>${esc(fs.experience || '')}</td></tr>
+        <tr><th>社会課題</th><td>${esc(fs.social_issue || '')}</td></tr>
+        <tr><th>大学</th><td>${esc(fs.university || '')}</td></tr>
+        <tr><th>将来像</th><td>${esc(fs.future || '')}</td></tr>
+      </tbody></table></div>`;
+  }
+
+  if (Array.isArray(d.next_actions) && d.next_actions.length) {
+    html += '<div class="card" style="margin-top:10px;background:var(--green-soft)"><h4 style="margin:0 0 6px;color:var(--green)">▶ 今やるべき3つ</h4><ol style="padding-left:18px">';
+    d.next_actions.forEach(a => { html += `<li>${esc(a)}</li>`; });
+    html += '</ol></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+async function openStressDialog() {
+  if (!_me?.plan?.features?.students) {
+    alert('耐圧テストは Tutor プラン以上で利用できます');
+    return;
+  }
+  let students = [];
+  try { students = await (await fetch('/api/students')).json(); } catch (_) {}
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,38,87,.4);display:flex;align-items:center;justify-content:center;z-index:100';
+  modal.innerHTML = `
+    <div style="background:#fff;padding:24px;border-radius:var(--radius-lg);width:720px;max-width:94vw;max-height:92vh;overflow:auto">
+      <h3 style="margin:0 0 8px;color:var(--brand-navy)">🧪 耐圧テスト</h3>
+      <p class="muted" style="font-size:.82rem">志望理由書や面接回答ドラフトを、5つの視点（面接官／高校の先生／塾講師／大学教授／同世代受験生）で評価し、カテゴリ別の想定質問を生成します。</p>
+      <div class="field" style="margin-top:10px">
+        <label>ドラフト種別</label>
+        <select id="st-type" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <option value="志望理由書">志望理由書</option>
+          <option value="面接回答">面接回答</option>
+          <option value="活動報告書">活動報告書</option>
+        </select>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>生徒（任意・プロファイル参照のため）</label>
+        <select id="st-student" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <option value="">（選ばない）</option>
+          ${students.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>ドラフト本文 <span class="muted" style="font-size:.72rem">（50〜8000字）</span></label>
+        <textarea id="st-draft" rows="10" style="width:100%" placeholder="志望理由書のドラフトをここに貼り付け…"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="st-cancel">キャンセル</button>
+        <button class="btn btn-primary" id="st-go">テスト実行</button>
+      </div>
+      <div id="st-result" style="margin-top:14px"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#st-cancel').onclick = () => modal.remove();
+  modal.querySelector('#st-go').onclick = async () => {
+    const draft = modal.querySelector('#st-draft').value.trim();
+    if (draft.length < 50) { alert('50字以上のドラフトを入力してください'); return; }
+    const stype = modal.querySelector('#st-type').value;
+    const sid   = modal.querySelector('#st-student').value;
+    const box = modal.querySelector('#st-result');
+    box.innerHTML = '<div class="muted">耐圧テスト中…（LLM 推論に20-40秒）</div>';
+    try {
+      const r = await fetch('/api/diagnosis/stress_test', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          request_id: _currentRequestId,
+          draft_text: draft,
+          draft_type: stype,
+          student_id: sid ? Number(sid) : null,
+        }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({detail: r.status}));
+        box.innerHTML = `<div style="color:var(--red)">失敗: ${esc(e.detail || r.status)}</div>`;
+        return;
+      }
+      const data = await r.json();
+      renderStressTest(box, data);
+    } catch (e) {
+      box.innerHTML = `<div style="color:var(--red)">失敗: ${esc(e.message)}</div>`;
+    }
+  };
+}
+
+async function openPhaseDialog() {
+  if (!_me?.plan?.features?.students) {
+    alert('段階別戦略は Tutor プラン以上で利用できます');
+    return;
+  }
+  let students = [];
+  try { students = await (await fetch('/api/students')).json(); } catch (_) {}
+  const nowMonth = (new Date()).getMonth() + 1;
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,38,87,.4);display:flex;align-items:center;justify-content:center;z-index:100';
+  modal.innerHTML = `
+    <div style="background:#fff;padding:24px;border-radius:var(--radius-lg);width:680px;max-width:94vw;max-height:92vh;overflow:auto">
+      <h3 style="margin:0 0 8px;color:var(--brand-navy)">📅 段階別戦略</h3>
+      <p class="muted" style="font-size:.82rem">現在の時期と準備状況から、今最も効果の大きい行動を3つ提示します。</p>
+      <div class="field" style="margin-top:10px">
+        <label>現在の月</label>
+        <select id="ph-month" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+          ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<option value="${m}" ${m === nowMonth ? 'selected' : ''}>${m}月</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>生徒（任意）</label>
+        <select id="ph-student" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <option value="">（選ばない）</option>
+          ${students.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>現状メモ <span class="muted" style="font-size:.72rem">（どこまで進んだか・何に詰まっているか）</span></label>
+        <textarea id="ph-status" rows="6" style="width:100%" placeholder="例: 志望校は3校に絞った。志望理由書のドラフトを1稿書いたが、必然性が弱いと指摘された。面接対策はまだ。"></textarea>
+      </div>
+      <div class="hint" style="margin-top:4px;font-size:.76rem">このリサーチ（${esc(document.getElementById('result-title').textContent.replace(/の調査結果$/, ''))}）は志望校コンテキストとして自動で使われます。</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="ph-cancel">キャンセル</button>
+        <button class="btn btn-primary" id="ph-go">戦略を生成</button>
+      </div>
+      <div id="ph-result" style="margin-top:14px"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#ph-cancel').onclick = () => modal.remove();
+  modal.querySelector('#ph-go').onclick = async () => {
+    const box = modal.querySelector('#ph-result');
+    box.innerHTML = '<div class="muted">戦略を生成中…（LLM 推論に10-20秒）</div>';
+    try {
+      const r = await fetch('/api/diagnosis/phase_strategy', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          current_month: Number(modal.querySelector('#ph-month').value),
+          preparation_status: modal.querySelector('#ph-status').value,
+          student_id: modal.querySelector('#ph-student').value ? Number(modal.querySelector('#ph-student').value) : null,
+          request_id: _currentRequestId,
+        }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({detail: r.status}));
+        box.innerHTML = `<div style="color:var(--red)">失敗: ${esc(e.detail || r.status)}</div>`;
+        return;
+      }
+      const data = await r.json();
+      renderPhaseStrategy(box, data);
+    } catch (e) {
+      box.innerHTML = `<div style="color:var(--red)">失敗: ${esc(e.message)}</div>`;
+    }
+  };
+}
+
+function renderPhaseStrategy(container, data) {
+  const d = data.diagnosis || {};
+  const cs = d.current_stage || {};
+  const ca = d.current_assessment || {};
+  let html = `<div class="card" style="margin-top:10px;background:var(--brand-light)">
+    <h4 style="margin:0 0 4px;color:var(--brand-navy)">${esc(cs.period_name || '不明')}</h4>
+    <div style="font-size:.88rem">${esc(cs.key_theme || '')}</div>
+    ${cs.days_remaining_to_typical_deadline ? `<div class="muted" style="font-size:.72rem;margin-top:4px">出願締切まで: ${esc(cs.days_remaining_to_typical_deadline)}</div>` : ''}
+    <div class="muted" style="font-size:.72rem;margin-top:4px">${esc(data.model?.provider || '')}/${esc(data.model?.model || '')}</div>
+  </div>`;
+
+  // 現状評価
+  if (ca.already_done?.length || ca.still_missing?.length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 6px">📋 現状評価</h4>';
+    if (ca.already_done?.length) {
+      html += '<div style="margin-top:4px"><strong style="color:var(--green)">✓ できていること</strong><ul style="margin:4px 0;padding-left:18px">';
+      ca.already_done.forEach(x => { html += `<li>${esc(x)}</li>`; });
+      html += '</ul></div>';
+    }
+    if (ca.still_missing?.length) {
+      html += '<div style="margin-top:6px"><strong style="color:var(--yellow)">△ 足りていないこと</strong><ul style="margin:4px 0;padding-left:18px">';
+      ca.still_missing.forEach(x => { html += `<li>${esc(x)}</li>`; });
+      html += '</ul></div>';
+    }
+    html += '</div>';
+  }
+
+  // Top Actions
+  if (Array.isArray(d.top_actions) && d.top_actions.length) {
+    html += '<div class="card" style="margin-top:10px;background:var(--green-soft)"><h4 style="margin:0 0 6px;color:var(--green)">▶ 今やるべき3つ</h4><ol style="padding-left:18px">';
+    d.top_actions.forEach(a => {
+      html += `<li><strong>${esc(a.action || '')}</strong>`;
+      if (a.est_time) html += ` <span class="conf-badge conf-medium">${esc(a.est_time)}</span>`;
+      if (a.why) html += `<div class="muted" style="font-size:.8rem;margin-top:2px">理由: ${esc(a.why)}</div>`;
+      html += '</li>';
+    });
+    html += '</ol></div>';
+  }
+
+  // Recommended Modes
+  if (Array.isArray(d.recommended_modes) && d.recommended_modes.length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 6px">🔧 推奨モード</h4><ul style="padding-left:18px">';
+    d.recommended_modes.forEach(m => {
+      html += `<li><strong>${esc(m.mode || '')}</strong>`;
+      if (m.why) html += `<div class="muted" style="font-size:.8rem">${esc(m.why)}</div>`;
+      html += '</li>';
+    });
+    html += '</ul></div>';
+  }
+
+  // Avoid
+  if (Array.isArray(d.avoid_actions) && d.avoid_actions.length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 6px">🚫 避けるべき行動</h4><ul style="padding-left:18px">';
+    d.avoid_actions.forEach(a => {
+      html += `<li><strong>${esc(a.action || '')}</strong>`;
+      if (a.why) html += `<div class="muted" style="font-size:.8rem">${esc(a.why)}</div>`;
+      html += '</li>';
+    });
+    html += '</ul></div>';
+  }
+
+  // Next stage checklist
+  if (Array.isArray(d.next_stage_checklist) && d.next_stage_checklist.length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 6px">☑️ 次の段階に進む前のチェックリスト</h4><ul style="list-style:none;padding-left:0">';
+    d.next_stage_checklist.forEach(x => { html += `<li style="padding:2px 0">☐ ${esc(x)}</li>`; });
+    html += '</ul></div>';
+  }
+
+  if (d.timing_warning) {
+    html += `<div class="card" style="margin-top:10px;background:var(--yellow-soft)"><strong style="color:var(--yellow)">⚠️ 時期特有の注意</strong><div style="margin-top:4px">${esc(d.timing_warning)}</div></div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function renderStressTest(container, data) {
+  const d = data.diagnosis || {};
+  let html = `<div class="card" style="margin-top:10px;background:var(--brand-light)">
+    <div class="muted" style="font-size:.72rem">${esc(data.model?.provider || '')}/${esc(data.model?.model || '')} — ${esc(String(data.draft_length || 0))}字${data.student ? ' / 生徒: ' + esc(data.student.name) : ''}</div>
+  </div>`;
+
+  // 5 役割
+  if (Array.isArray(d.role_evaluations) && d.role_evaluations.length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 8px">🎭 5視点からの評価</h4>';
+    d.role_evaluations.forEach(r => {
+      html += `<div style="padding:10px;margin-bottom:8px;border-left:3px solid var(--brand-blue);background:var(--bg);border-radius:var(--radius-sm)">
+        <div><strong>${esc(r.role || '')}</strong> <span class="muted" style="font-size:.72rem">${esc(r.tone || '')}</span></div>
+        <div style="font-size:.88rem;margin-top:4px">${esc(r.overall || '')}</div>`;
+      if (r.strong_points?.length) html += '<div style="margin-top:6px;font-size:.8rem"><strong style="color:var(--green)">◎</strong> ' + r.strong_points.map(esc).join(' / ') + '</div>';
+      if (r.weak_points?.length)   html += '<div style="margin-top:2px;font-size:.8rem"><strong style="color:var(--red)">×</strong> ' + r.weak_points.map(esc).join(' / ') + '</div>';
+      if (r.matched_pattern)       html += `<div style="margin-top:4px;font-size:.8rem">該当パターン: ${esc(r.matched_pattern)}</div>`;
+      if (r.recommended_shift)     html += `<div style="margin-top:2px;font-size:.8rem">→ ${esc(r.recommended_shift)}</div>`;
+      if (r.field_understanding)   html += `<div style="margin-top:4px;font-size:.8rem">分野理解: ${esc(r.field_understanding)}</div>`;
+      if (r.errors?.length)        html += '<div style="margin-top:2px;font-size:.8rem;color:var(--red)">誤り: ' + r.errors.map(esc).join(' / ') + '</div>';
+      if (r.further_readings?.length) html += '<div style="margin-top:2px;font-size:.8rem">追加読書: ' + r.further_readings.map(esc).join(' / ') + '</div>';
+      if (r.feels_real?.length)    html += '<div style="margin-top:4px;font-size:.8rem">リアル: ' + r.feels_real.map(esc).join(' / ') + '</div>';
+      if (r.feels_fake?.length)    html += '<div style="margin-top:2px;font-size:.8rem;color:var(--red)">きれいごと: ' + r.feels_fake.map(esc).join(' / ') + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // 想定質問カテゴリ
+  const catLabels = {
+    necessity:    '必然性への突っ込み',
+    logic:        '論理の穴',
+    university:   '大学理解',
+    future:       '将来像',
+    achievements: '実績・活動',
+  };
+  const qbc = d.questions_by_category || {};
+  if (Object.keys(qbc).length) {
+    html += '<div class="card" style="margin-top:10px"><h4 style="margin:0 0 8px">❓ 想定質問（カテゴリ別）</h4>';
+    for (const [k, label] of Object.entries(catLabels)) {
+      const arr = qbc[k];
+      if (!Array.isArray(arr) || !arr.length) continue;
+      html += `<div style="margin-top:8px"><strong>${esc(label)}</strong><ul style="margin:4px 0;padding-left:18px">`;
+      arr.forEach(q => {
+        html += `<li><strong>${esc(q.question || '')}</strong>`;
+        if (q.difficulty) html += ` <span class="conf-badge conf-${q.difficulty === '深掘り' ? 'low' : 'medium'}">${esc(q.difficulty)}</span>`;
+        if (q.notes) html += `<div class="muted" style="font-size:.78rem">${esc(q.notes)}</div>`;
+        html += '</li>';
+      });
+      html += '</ul></div>';
+    }
+    html += '</div>';
+  }
+
+  // 総評
+  const ts = d.test_summary;
+  if (ts) {
+    html += '<div class="card" style="margin-top:10px;background:var(--yellow-soft)">';
+    html += `<h4 style="margin:0 0 6px;color:var(--yellow)">📊 耐圧テスト結果</h4>`;
+    html += `<div style="font-size:.88rem">耐える: ${esc(ts.survives_pct || '?')} / 詰まる: ${esc(ts.stalls_pct || '?')} / 崩れる: ${esc(ts.breaks_pct || '?')}</div>`;
+    if (ts.final_comment) html += `<div style="margin-top:6px">${esc(ts.final_comment)}</div>`;
+    if (Array.isArray(ts.top_3_reinforcements) && ts.top_3_reinforcements.length) {
+      html += '<div style="margin-top:8px"><strong>優先補強3点</strong><ol style="padding-left:18px">';
+      ts.top_3_reinforcements.forEach(t => { html += `<li>${esc(t)}</li>`; });
+      html += '</ol></div>';
+    }
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function typeLabel(t) {
+  return ({official_pdf:'📄公式PDF', official_html:'🌐公式HP', aggregator:'📰補助', unknown:'?'})[t] || t;
+}
+
+/* ── 保存ダイアログ ── */
+async function openSaveDialog() {
+  if (!_me?.plan?.features?.save) {
+    alert('保存機能は Student プラン以上で利用できます');
+    return;
+  }
+  const bg = document.getElementById('save-bg');
+  bg.classList.add('open');
+  const body = document.getElementById('save-body');
+  body.innerHTML = '読み込み中…';
+  let students = [];
+  if (_me.plan.features.students) {
+    try {
+      const r = await fetch('/api/students');
+      if (r.ok) students = await r.json();
+    } catch (_) {}
+  }
+  const studentList = students.length ? `
+    <div style="font-size:.82rem;color:var(--muted);margin:8px 0">生徒に紐付ける（任意）</div>
+    <div id="student-options">
+      <div class="student-pick selected" data-id="">個人保存（生徒と紐付けない）</div>
+      ${students.map(s => `<div class="student-pick" data-id="${s.id}">${esc(s.name)} <span style="color:var(--muted)">(${s.saved_count})</span></div>`).join('')}
+    </div>
+  ` : (_me.plan.features.students === undefined ? '<div class="muted">※ 生徒別管理は Tutor プラン以上で利用できます</div>' : '<div class="muted">まだ生徒がいません。<a href="/app/students" target="_blank">生徒を追加</a></div>');
+  body.innerHTML = `
+    ${studentList}
+    <div class="field" style="margin-top:14px">
+      <label>メモ（任意）</label>
+      <textarea id="save-memo" rows="3" placeholder="例: 評定3.8 / 英検2級保有 / 面接対策が必要"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="closeSaveDialog()">キャンセル</button>
+      <button class="btn btn-primary" onclick="confirmSave()">保存する</button>
+    </div>
+  `;
+  body.querySelectorAll('.student-pick').forEach(el => {
+    el.addEventListener('click', () => {
+      body.querySelectorAll('.student-pick').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+  });
+}
+function closeSaveDialog() { document.getElementById('save-bg').classList.remove('open'); }
+
+async function confirmSave() {
+  const sel = document.querySelector('.student-pick.selected');
+  const sid = sel ? sel.dataset.id : '';
+  const memo = document.getElementById('save-memo').value;
+  try {
+    const res = await fetch('/api/saved', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        request_id: _currentRequestId,
+        student_id: sid ? Number(sid) : null,
+        memo,
+      }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.status); }
+    closeSaveDialog();
+    alert('保存しました');
+  } catch (e) { alert('保存失敗: ' + e.message); }
+}
+</script>
+</body>
+</html>

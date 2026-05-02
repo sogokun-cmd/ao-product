@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保存一覧 — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .filter-bar {
+    background: #fff; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 14px;
+  }
+  .filter-search { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .chip {
+    padding: 4px 12px; border-radius: 16px; font-size: .76rem; font-weight: 600;
+    border: 1px solid var(--border); background: #fff; color: var(--muted); cursor: pointer;
+  }
+  .chip.active { background: var(--brand-light); color: var(--brand-navy); border-color: var(--brand-blue); }
+
+  .item {
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 10px;
+  }
+  .item-title { font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+  .item-sub { font-size: .8rem; color: var(--muted); }
+  .item-actions { display: flex; gap: 6px; margin-top: 10px; }
+  .item-memo {
+    width: 100%; min-height: 56px; padding: 8px; margin-top: 8px; resize: vertical;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; font-size: .85rem;
+  }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+
+<main class="app-shell">
+  <h1 style="margin:0 0 8px;color:var(--brand-navy)">保存一覧</h1>
+  <p class="muted">保存した調査結果の一覧。検索とフィルタで絞り込めます。</p>
+
+  <div class="filter-bar">
+    <input type="text" class="filter-search" id="q" placeholder="大学名・学部・学科で検索...">
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div id="list">読み込み中…</div>
+</main>
+
+<footer class="app-footer">AOリサーチ</footer>
+
+<script src="/shared/header.js"></script>
+<script>
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+const FILTERS = [
+  { id:'interview_only', label:'面接のみ', test:f=>!!f.interview_only },
+  { id:'no_presentation', label:'プレゼンなし', test:f=>f.no_presentation !== false },
+  { id:'essay', label:'小論文あり', test:f=>!!f.essay },
+  { id:'no_english', label:'英検不要', test:f=>f.english_required === false },
+  { id:'gpa_35', label:'評定3.5以下OK', test:f=>f.gpa_min!=null && f.gpa_min <= 3.5 },
+  { id:'no_activity', label:'活動実績不問', test:f=>f.activity_required === false },
+];
+let _items = [];
+let _state = { q: '', chips: new Set() };
+
+function render() {
+  const list = document.getElementById('list');
+  const filtered = _items.filter(it => {
+    const q = _state.q.trim().toLowerCase();
+    if (q) {
+      const hay = [it.university, it.faculty, it.department].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    for (const id of _state.chips) {
+      const f = FILTERS.find(x=>x.id===id);
+      if (f && !f.test(it.flags || {})) return false;
+    }
+    return true;
+  });
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">該当する保存がありません</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(it => {
+    const label = [it.university, it.faculty, it.department].filter(Boolean).join(' ');
+    return `<div class="item" id="item-${it.id}">
+      <div class="item-title">${esc(label)}</div>
+      <div class="item-sub">${(it.created_at||'').slice(0,10)} ${it.unknown_count != null ? `· 不明 ${it.unknown_count}件` : ''}</div>
+      <textarea class="item-memo" placeholder="メモ"
+        onchange="updateMemo(${it.id}, this.value)">${esc(it.memo||'')}</textarea>
+      <div class="item-actions">
+        <a class="btn" href="/app/research/${esc(it.request_id)}">結果を見る</a>
+        <button class="btn btn-danger" onclick="removeSaved(${it.id})">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+(async function () {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  if (!me.plan?.features?.save) {
+    document.querySelector('main').innerHTML = '<div class="empty">保存機能は Student プラン以上で利用できます。<br><a href="/pricing">料金プラン</a></div>';
+    return;
+  }
+  document.getElementById('chips').innerHTML = FILTERS.map(f =>
+    `<span class="chip" data-id="${f.id}">${esc(f.label)}</span>`
+  ).join('');
+  document.getElementById('chips').addEventListener('click', e => {
+    if (!e.target.dataset.id) return;
+    const id = e.target.dataset.id;
+    if (_state.chips.has(id)) _state.chips.delete(id); else _state.chips.add(id);
+    e.target.classList.toggle('active');
+    render();
+  });
+  document.getElementById('q').addEventListener('input', e => { _state.q = e.target.value; render(); });
+  try {
+    _items = await (await fetch('/api/saved')).json();
+    render();
+  } catch (e) {
+    document.getElementById('list').innerHTML = `<div class="empty">読み込み失敗: ${esc(e.message)}</div>`;
+  }
+})();
+
+async function updateMemo(id, memo) {
+  try {
+    const r = await fetch(`/api/saved/${id}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({memo}),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  } catch (e) { alert('保存失敗: ' + e.message); }
+}
+async function removeSaved(id) {
+  if (!confirm('削除しますか？')) return;
+  try {
+    const r = await fetch(`/api/saved/${id}`, {method:'DELETE'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    _items = _items.filter(x => x.id !== id);
+    render();
+  } catch (e) { alert('削除失敗: ' + e.message); }
+}
+</script>
+</body>
+</html>

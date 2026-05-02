@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>条件検索 — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .page-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+  .page-head h1 { margin:0; color:var(--brand-navy); }
+
+  .filter-card {
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:20px 24px; margin-bottom:20px;
+  }
+  .filter-row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px; }
+  .filter-group { display:flex; flex-direction:column; gap:6px; }
+  .filter-label { font-size:.74rem; font-weight:700; color:var(--ink-soft); letter-spacing:.03em; }
+  .filter-chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip {
+    padding:6px 14px; border:1.5px solid var(--border); border-radius:20px;
+    font-size:.8rem; cursor:pointer; transition:all .15s; user-select:none; font-weight:600;
+    background:#fff; color:var(--ink-soft);
+  }
+  .chip:hover { border-color:var(--brand-blue); color:var(--brand-blue); }
+  .chip.active { background:var(--brand-navy); border-color:var(--brand-navy); color:#fff; }
+  .chip.active-off { background:var(--red-soft); border-color:var(--red); color:var(--red); }
+
+  .kw-input { padding:8px 14px; border:1.5px solid var(--border); border-radius:20px; font-size:.88rem; width:220px; outline:none; }
+  .kw-input:focus { border-color:var(--brand-blue); }
+
+  .result-meta { font-size:.82rem; color:var(--muted); margin-bottom:12px; }
+  .result-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+
+  .school-card {
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; transition:box-shadow .15s;
+  }
+  .school-card:hover { box-shadow:var(--shadow); }
+  .school-name { font-weight:800; color:var(--brand-navy); font-size:.95rem; margin-bottom:4px; }
+  .school-sub { font-size:.78rem; color:var(--muted); margin-bottom:10px; }
+  .school-flags { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px; }
+  .flag-tag { font-size:.68rem; padding:2px 8px; border-radius:8px; font-weight:700; }
+  .flag-interview { background:var(--brand-light); color:var(--brand-blue); }
+  .flag-essay { background:var(--yellow-soft); color:var(--yellow); }
+  .flag-pres { background:var(--red-soft); color:var(--red); }
+  .flag-eng { background:var(--green-soft); color:var(--green); }
+  .flag-gpa { background:#f0f0f0; color:var(--muted); }
+  .school-meta { font-size:.76rem; color:var(--muted); display:flex; gap:10px; }
+  .school-actions { margin-top:10px; display:flex; gap:6px; }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+
+<main class="app-shell">
+  <div class="page-head">
+    <div>
+      <h1>条件検索</h1>
+      <p class="muted" style="margin:2px 0 0;font-size:.85rem">リサーチ済みの大学を入試条件で絞り込み</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <a class="btn" href="/app/compare">比較表</a>
+      <a class="btn" href="/app">← ダッシュボード</a>
+    </div>
+  </div>
+
+  <div class="filter-card">
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-label">選考方法</span>
+        <div class="filter-chips">
+          <div class="chip" id="chip-interview" onclick="toggleChip('interview')">面接あり</div>
+          <div class="chip" id="chip-essay" onclick="toggleChip('essay')">小論文あり</div>
+          <div class="chip" id="chip-no_presentation" onclick="toggleChip('no_presentation')">プレゼンなし</div>
+          <div class="chip" id="chip-interview_only" onclick="toggleChip('interview_only')">面接のみ</div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">英語資格</span>
+        <div class="filter-chips">
+          <div class="chip" id="chip-eng_yes" onclick="toggleEngChip(true)">必須</div>
+          <div class="chip" id="chip-eng_no" onclick="toggleEngChip(false)">不要</div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">評定（上限）</span>
+        <div class="filter-chips">
+          <div class="chip" id="chip-gpa-any" onclick="setGpa(null)" class="active">問わない</div>
+          <div class="chip" id="chip-gpa-35" onclick="setGpa(3.5)">3.5以下</div>
+          <div class="chip" id="chip-gpa-40" onclick="setGpa(4.0)">4.0以下</div>
+          <div class="chip" id="chip-gpa-45" onclick="setGpa(4.5)">4.5以下</div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-row" style="margin-bottom:0">
+      <div class="filter-group">
+        <span class="filter-label">キーワード（大学名・学部名）</span>
+        <input class="kw-input" id="kw-input" placeholder="例: 立教、経済" oninput="scheduleSearch()">
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">タグ</span>
+        <select id="tag-select" class="kw-input" style="width:130px" onchange="scheduleSearch()">
+          <option value="">すべて</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="doSearch()" style="align-self:flex-end">検索</button>
+      <button class="btn" onclick="resetFilters()" style="align-self:flex-end">リセット</button>
+    </div>
+  </div>
+
+  <div class="result-meta" id="result-meta"></div>
+  <div class="result-grid" id="result-grid">
+    <div class="muted" style="padding:20px">フィルターを設定して検索してください</div>
+  </div>
+</main>
+
+<footer class="app-footer">AOリサーチ</footer>
+<script src="/shared/header.js"></script>
+<script>
+function esc(s) {
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _filters = {
+  interview: null, essay: null, no_presentation: null,
+  interview_only: null, english_required: null, gpa_max: null,
+};
+let _searchTimer = null;
+
+(async function init() {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  // タグ一覧を取得してセレクトに反映
+  try {
+    const tags = await (await fetch('/api/research/tags/all')).json();
+    const sel = document.getElementById('tag-select');
+    tags.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      sel.appendChild(opt);
+    });
+  } catch (_) {}
+  // URLパラメータから初期フィルタを復元
+  const p = new URLSearchParams(location.search);
+  if (p.get('interview') === '1') { _filters.interview = true; document.getElementById('chip-interview').classList.add('active'); }
+  if (p.get('essay') === '1') { _filters.essay = true; document.getElementById('chip-essay').classList.add('active'); }
+  if (p.get('no_pres') === '1') { _filters.no_presentation = true; document.getElementById('chip-no_presentation').classList.add('active'); }
+  if (p.get('kw')) { document.getElementById('kw-input').value = p.get('kw'); }
+  doSearch();
+})();
+
+function toggleChip(key) {
+  const el = document.getElementById(`chip-${key}`);
+  if (_filters[key] === true) {
+    _filters[key] = null;
+    el.classList.remove('active');
+  } else {
+    _filters[key] = true;
+    el.classList.add('active');
+  }
+  doSearch();
+}
+
+let _engFilter = null;
+function toggleEngChip(val) {
+  const yesEl = document.getElementById('chip-eng_yes');
+  const noEl  = document.getElementById('chip-eng_no');
+  if (_engFilter === val) {
+    _engFilter = null; _filters.english_required = null;
+    yesEl.classList.remove('active', 'active-off');
+    noEl.classList.remove('active', 'active-off');
+  } else {
+    _engFilter = val; _filters.english_required = val;
+    yesEl.classList.toggle('active', val === true);
+    noEl.classList.toggle('active', val === false);
+    yesEl.classList.toggle('active-off', val === false);
+    noEl.classList.toggle('active-off', val === true);
+  }
+  doSearch();
+}
+
+let _gpaMax = null;
+function setGpa(v) {
+  _gpaMax = v; _filters.gpa_max = v;
+  ['any','35','40','45'].forEach(id => document.getElementById(`chip-gpa-${id}`).classList.remove('active'));
+  const idMap = {null:'any', 3.5:'35', 4.0:'40', 4.5:'45'};
+  document.getElementById(`chip-gpa-${idMap[v]}`).classList.add('active');
+  doSearch();
+}
+
+function scheduleSearch() {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(doSearch, 400);
+}
+
+function resetFilters() {
+  _filters = { interview:null, essay:null, no_presentation:null, interview_only:null, english_required:null, gpa_max:null };
+  _engFilter = null; _gpaMax = null;
+  document.getElementById('kw-input').value = '';
+  document.getElementById('tag-select').value = '';
+  document.querySelectorAll('.chip').forEach(el => el.classList.remove('active','active-off'));
+  document.getElementById('chip-gpa-any').classList.add('active');
+  doSearch();
+}
+
+async function doSearch() {
+  const kw = document.getElementById('kw-input').value.trim();
+  const tagFilter = document.getElementById('tag-select').value;
+  const params = new URLSearchParams();
+  if (_filters.interview !== null)        params.set('interview', _filters.interview);
+  if (_filters.essay !== null)            params.set('essay', _filters.essay);
+  if (_filters.no_presentation !== null)  params.set('no_presentation', _filters.no_presentation);
+  if (_filters.english_required !== null) params.set('english_required', _filters.english_required);
+  if (_filters.gpa_max !== null)          params.set('gpa_max', _filters.gpa_max);
+  if (kw)                                 params.set('keyword', kw);
+  if (tagFilter)                          params.set('tag', tagFilter);
+
+  const grid = document.getElementById('result-grid');
+  grid.innerHTML = '<div class="muted" style="padding:20px">検索中…</div>';
+  try {
+    const r = await fetch(`/api/research/filter?${params}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    renderResults(data.results || []);
+  } catch(e) {
+    grid.innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`;
+  }
+}
+
+function renderResults(items) {
+  const grid = document.getElementById('result-grid');
+  const meta = document.getElementById('result-meta');
+  meta.textContent = `${items.length}件 該当`;
+  if (!items.length) {
+    grid.innerHTML = '<div class="muted" style="padding:20px">該当するリサーチ結果がありません。<a href="/app/research">新しいリサーチ</a>を実行してください。</div>';
+    return;
+  }
+  grid.innerHTML = items.map(it => {
+    const flags = it.flags || {};
+    const sub = [it.faculty, it.department, it.admission_method].filter(Boolean).join(' / ');
+    const flagTags = [];
+    if (flags.interview)        flagTags.push('<span class="flag-tag flag-interview">面接</span>');
+    if (flags.essay)            flagTags.push('<span class="flag-tag flag-essay">小論文</span>');
+    if (flags.presentation)     flagTags.push('<span class="flag-tag flag-pres">プレゼン</span>');
+    if (flags.interview_only)   flagTags.push('<span class="flag-tag" style="background:#e0f2fe;color:#0369a1">面接のみ</span>');
+    if (flags.english_required) flagTags.push('<span class="flag-tag flag-eng">英語必須</span>');
+    if (flags.gpa_min)          flagTags.push(`<span class="flag-tag flag-gpa">評定${flags.gpa_min}以上</span>`);
+    if (flags.activity_required)flagTags.push('<span class="flag-tag" style="background:#f3e8ff;color:#7c3aed">実績必要</span>');
+    const upd = (it.updated_at || '').slice(0, 10);
+    const unk = it.unknown_count > 0 ? `不明${it.unknown_count}件` : '完全取得';
+    const tagChips = (it.tags || []).map(t =>
+      `<span style="font-size:.66rem;padding:1px 7px;border-radius:8px;background:var(--brand-light);color:var(--brand-blue);font-weight:700">${esc(t)}</span>`
+    ).join('');
+    return `<div class="school-card">
+      <div class="school-name">${esc(it.university)}</div>
+      <div class="school-sub">${esc(sub) || '—'}</div>
+      <div class="school-flags">${flagTags.join('') || '<span class="flag-tag flag-gpa">フラグなし</span>'}</div>
+      ${tagChips ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">${tagChips}</div>` : ''}
+      <div class="school-meta">
+        <span>🗓 ${upd}</span>
+        <span>${unk}</span>
+      </div>
+      <div class="school-actions">
+        <a class="btn" href="/app/research/${esc(it.request_id)}" style="font-size:.78rem;padding:5px 10px">詳細</a>
+        <button class="btn" style="font-size:.78rem;padding:5px 10px" onclick="addToCompare('${esc(it.request_id)}','${esc(it.university)}')">比較に追加</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const _compareQueue = new Set();
+function addToCompare(id, name) {
+  if (_compareQueue.size >= 4) { alert('最大4件まで比較できます'); return; }
+  _compareQueue.add(id);
+  const ids = [..._compareQueue].join(',');
+  window.open(`/app/compare?ids=${encodeURIComponent(ids)}`, '_blank');
+}
+</script>
+</body>
+</html>

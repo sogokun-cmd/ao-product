@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ナレッジ管理 — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .stat-num { font-size: 2rem; font-weight: 800; color: var(--brand-navy); font-family: var(--font-num); line-height: 1; }
+  .stat-label { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .search-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .search-bar input { flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: .88rem; }
+
+  table.k-table { width: 100%; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); border-collapse: separate; border-spacing: 0; overflow: hidden; font-size: .84rem; }
+  .k-table th, .k-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .k-table th { background: var(--bg); font-weight: 700; color: var(--brand-navy); font-size: .76rem; }
+  .k-table tr:last-child td { border-bottom: 0; }
+  .k-table tr:hover td { background: var(--brand-light); }
+  .run-badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700; background: var(--brand-light); color: var(--brand-blue); }
+  .stale-badge { background: var(--yellow-soft); color: var(--yellow); padding: 1px 7px; border-radius: 8px; font-size: .7rem; font-weight: 700; }
+  .field-bar { height: 6px; background: var(--brand-blue); border-radius: 3px; display: inline-block; }
+
+  .detail-modal { position: fixed; inset: 0; background: rgba(15,38,87,.4); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .detail-modal.open { display: flex; }
+  .detail-box { background: #fff; border-radius: var(--radius-lg); width: 820px; max-width: 96vw; max-height: 90vh; overflow: auto; padding: 24px; }
+  .field-entry { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; font-size: .82rem; }
+  .field-key { font-weight: 700; color: var(--brand-navy); }
+  .field-val { color: var(--ink-soft); margin-top: 4px; word-break: break-all; }
+  .field-meta { font-size: .72rem; color: var(--muted); margin-top: 4px; }
+
+  .coverage-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: .78rem; }
+  .coverage-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .coverage-fill { height: 100%; background: var(--brand-blue); border-radius: 4px; }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+
+<main class="app-shell">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div>
+      <h1 style="margin:0;color:var(--brand-navy)">🧠 ナレッジ管理</h1>
+      <p class="muted" style="margin:4px 0 0">リサーチのたびに蓄積される大学情報データベース</p>
+    </div>
+    <a class="btn" href="/app">← ダッシュボード</a>
+  </div>
+
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="stat-num" id="st-entries">—</div><div class="stat-label">蓄積エントリ</div></div>
+    <div class="stat-card"><div class="stat-num" id="st-unis">—</div><div class="stat-label">大学数</div></div>
+    <div class="stat-card"><div class="stat-num" id="st-runs">—</div><div class="stat-label">累計リサーチ参照</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px" id="main-grid">
+    <div>
+      <div class="search-bar">
+        <input id="search-input" placeholder="大学名・学部名で絞り込み…" oninput="filterTable()">
+        <button class="btn btn-danger" onclick="confirmDeleteAll()" style="font-size:.78rem;padding:6px 12px">全削除</button>
+      </div>
+      <table class="k-table" id="k-table">
+        <thead><tr>
+          <th>大学</th><th>学部/学科</th><th>方式</th><th>フィールド</th><th>更新</th><th></th>
+        </tr></thead>
+        <tbody id="k-tbody">
+          <tr><td colspan="6" class="muted" style="text-align:center;padding:20px">読み込み中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card" id="coverage-card" style="padding:16px">
+        <h3 class="card-title" style="margin-bottom:12px">フィールド別充填率</h3>
+        <div id="coverage-list"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="detail-modal" id="detail-modal" onclick="if(event.target.id==='detail-modal')closeDetail()">
+  <div class="detail-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0;color:var(--brand-navy)" id="detail-title">詳細</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-danger" id="detail-delete-btn" onclick="deleteEntry()">削除</button>
+        <button class="btn" onclick="closeDetail()">閉じる</button>
+      </div>
+    </div>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<footer class="app-footer">AOリサーチ</footer>
+<script src="/shared/header.js"></script>
+<script>
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _allItems = [];
+let _stats = {};
+let _currentId = null;
+
+(async function init() {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  loadStats();
+  loadList();
+})();
+
+async function loadStats() {
+  try {
+    const r = await fetch('/api/admin/knowledge/stats');
+    if (!r.ok) { if (r.status === 403) { document.querySelector('main').innerHTML = '<p style="color:var(--red);padding:40px">管理者権限が必要です</p>'; } return; }
+    _stats = await r.json();
+    document.getElementById('st-entries').textContent = _stats.total_entries ?? '—';
+    document.getElementById('st-unis').textContent = _stats.unique_universities ?? '—';
+    document.getElementById('st-runs').textContent = _stats.total_research_runs ?? '—';
+    renderCoverage(_stats.field_coverage || []);
+  } catch(e) { console.error(e); }
+}
+
+function renderCoverage(fields) {
+  const max = fields[0]?.count || 1;
+  const labels = {
+    quota:'募集人数', ratio_history:'倍率', application_period:'出願期間',
+    eligibility:'出願資格', gpa_requirement:'評定条件', selection_methods:'選考方法',
+    selection_phase_1:'一次選考', selection_phase_2:'二次選考', evaluation_criteria:'評価観点',
+    submitted_documents:'提出書類', external_exam_requirements:'英語資格',
+  };
+  const html = fields.slice(0, 15).map(f => `
+    <div class="coverage-bar">
+      <span style="width:130px;flex-shrink:0">${esc(labels[f.field] || f.field)}</span>
+      <div class="coverage-track"><div class="coverage-fill" style="width:${Math.round(f.count/max*100)}%"></div></div>
+      <span style="width:30px;text-align:right;color:var(--muted)">${f.count}</span>
+    </div>`).join('');
+  document.getElementById('coverage-list').innerHTML = html || '<div class="muted">データなし</div>';
+}
+
+async function loadList() {
+  try {
+    const r = await fetch('/api/admin/knowledge?limit=500');
+    if (!r.ok) return;
+    const data = await r.json();
+    _allItems = data.items || [];
+    renderTable(_allItems);
+  } catch(e) { console.error(e); }
+}
+
+function renderTable(items) {
+  const tbody = document.getElementById('k-tbody');
+  if (!items.length) { tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:20px">データなし</td></tr>'; return; }
+  tbody.innerHTML = items.map(it => {
+    const stale = it.stale_fields_count > 0 ? `<span class="stale-badge">⚠古 ${it.stale_fields_count}</span>` : '';
+    const bar = `<span class="field-bar" style="width:${Math.min(it.filled_fields * 5, 80)}px"></span> ${it.filled_fields}`;
+    const upd = (it.updated_at || '').slice(0, 10);
+    const fac = [it.faculty, it.department].filter(Boolean).join(' / ') || '—';
+    return `<tr>
+      <td><strong>${esc(it.university)}</strong></td>
+      <td>${esc(fac)}</td>
+      <td style="font-size:.76rem">${esc(it.admission_method || '—')}</td>
+      <td>${bar} ${stale}</td>
+      <td style="font-size:.76rem;color:var(--muted)">${upd}</td>
+      <td><button class="btn" style="font-size:.72rem;padding:3px 8px" onclick="openDetail(${it.id})">詳細</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTable() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const filtered = q ? _allItems.filter(it =>
+    (it.university || '').toLowerCase().includes(q) ||
+    (it.faculty || '').toLowerCase().includes(q) ||
+    (it.department || '').toLowerCase().includes(q)
+  ) : _allItems;
+  renderTable(filtered);
+}
+
+async function openDetail(id) {
+  _currentId = id;
+  document.getElementById('detail-modal').classList.add('open');
+  document.getElementById('detail-body').innerHTML = '<div class="muted">読み込み中…</div>';
+  try {
+    const r = await fetch(`/api/admin/knowledge/${id}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    document.getElementById('detail-title').textContent = `${d.university} ${d.faculty} ${d.department} ${d.admission_method || ''}`.trim();
+    document.getElementById('detail-delete-btn').dataset.id = id;
+    const staleSet = new Set(d.stale_fields || []);
+    const fieldHtml = Object.entries(d.fields || {}).map(([k, v]) => {
+      const val = typeof v.value === 'object' ? JSON.stringify(v.value, null, 2) : String(v.value ?? '—');
+      const staleTag = staleSet.has(k) ? '<span class="stale-badge" style="margin-left:6px">古い</span>' : '';
+      return `<div class="field-entry">
+        <div class="field-key">${esc(k)}${staleTag}</div>
+        <div class="field-val">${esc(val.slice(0, 400))}${val.length > 400 ? '…' : ''}</div>
+        <div class="field-meta">信頼度: ${esc(v.confidence || '?')} | 出典: ${esc(v.source_type || '?')} | 更新: ${esc(v.updated_at || '?')}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('detail-body').innerHTML = `
+      <div class="muted" style="font-size:.78rem;margin-bottom:12px">
+        リサーチ参照数: ${d.run_count} | 作成: ${(d.created_at||'').slice(0,10)} | 更新: ${(d.updated_at||'').slice(0,10)}
+      </div>
+      ${fieldHtml || '<div class="muted">フィールドなし</div>'}`;
+  } catch(e) {
+    document.getElementById('detail-body').innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`;
+  }
+}
+
+function closeDetail() {
+  document.getElementById('detail-modal').classList.remove('open');
+  _currentId = null;
+}
+
+async function deleteEntry() {
+  if (!_currentId) return;
+  if (!confirm('このエントリを削除しますか？')) return;
+  try {
+    const r = await fetch(`/api/admin/knowledge/${_currentId}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    closeDetail();
+    _allItems = _allItems.filter(it => it.id !== _currentId);
+    renderTable(_allItems);
+    loadStats();
+  } catch(e) { alert('削除失敗: ' + e.message); }
+}
+
+async function confirmDeleteAll() {
+  if (!confirm('全エントリを削除します。この操作は取り消せません。続けますか？')) return;
+  if (!confirm('本当によいですか？蓄積されたすべてのナレッジが失われます。')) return;
+  try {
+    const r = await fetch('/api/admin/knowledge', { method: 'DELETE' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    alert(`${d.deleted}件削除しました`);
+    _allItems = [];
+    renderTable([]);
+    loadStats();
+  } catch(e) { alert('削除失敗: ' + e.message); }
+}
+</script>
+</body>
+</html>

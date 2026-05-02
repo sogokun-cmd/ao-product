@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生徒管理 — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .row { display:flex; gap:8px; align-items:center; }
+  .student-card {
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; margin-bottom:10px;
+  }
+  .saved-list { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+  .saved-row {
+    padding:8px 10px; background:var(--bg); border-radius:var(--radius-sm); margin-bottom:6px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .saved-row a { color:var(--brand-navy); font-weight:600; }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+<main class="app-shell">
+  <h1 style="margin:0 0 8px;color:var(--brand-navy)">生徒管理</h1>
+  <p class="muted">生徒ごとに候補校を整理。Tutor プラン以上の機能です。</p>
+
+  <div id="gate" style="display:none"></div>
+
+  <div id="content">
+    <div class="card">
+      <div class="row">
+        <input id="new-name" placeholder="新しい生徒の名前" style="flex:1;padding:9px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <button class="btn btn-primary" onclick="addStudent()">+ 追加</button>
+      </div>
+    </div>
+    <div id="list" style="margin-top:14px">読み込み中…</div>
+  </div>
+</main>
+<footer class="app-footer">AOリサーチ</footer>
+<script src="/shared/header.js"></script>
+<script>
+function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+(async function () {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  if (!me.plan?.features?.students) {
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('gate').style.display = 'block';
+    document.getElementById('gate').innerHTML = `<div class="empty">生徒管理は <strong>Tutor</strong> プラン以上で利用できます。<br><a href="/pricing">プラン一覧</a></div>`;
+    return;
+  }
+  await renderList();
+})();
+
+async function renderList() {
+  const list = document.getElementById('list');
+  try {
+    const items = await (await fetch('/api/students')).json();
+    if (!items.length) {
+      list.innerHTML = '<div class="empty">まだ生徒がいません</div>';
+      return;
+    }
+    list.innerHTML = items.map(s => {
+      const hasProfile = !!(s.profile_experience || s.profile_concerns || s.profile_future);
+      return `
+      <div class="student-card" id="s-${s.id}">
+        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleSaved(${s.id})">
+          <div>
+            <strong>${esc(s.name)}</strong>
+            ${hasProfile ? '<span class="plan-badge" style="background:var(--green-soft);color:var(--green);margin-left:6px">プロファイル有</span>' : '<span class="plan-badge" style="background:var(--yellow-soft);color:var(--yellow);margin-left:6px">プロファイル未入力</span>'}
+            ${s.note ? `<div class="muted" style="font-size:.78rem">${esc(s.note)}</div>` : ''}
+          </div>
+          <div class="row">
+            <span class="plan-badge">候補校 ${s.saved_count}</span>
+            <button class="btn" onclick="event.stopPropagation();editProfile(${s.id})">プロファイル</button>
+            <button class="btn" onclick="event.stopPropagation();batchMatch(${s.id}, '${esc(s.name).replace(/'/g,"\\'")}')" ${s.saved_count > 0 && hasProfile ? '' : 'disabled title="候補校 + プロファイルが必要"'}>🎯 一括診断</button>
+            <button class="btn" onclick="event.stopPropagation();renameStudent(${s.id}, '${esc(s.name).replace(/'/g,"\\'")}')">名前変更</button>
+            <button class="btn btn-danger" onclick="event.stopPropagation();deleteStudent(${s.id})">削除</button>
+          </div>
+        </div>
+        <div class="saved-list" id="saved-${s.id}" style="display:none"></div>
+      </div>
+    `;}).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="empty">読み込み失敗: ${esc(e.message)}</div>`;
+  }
+}
+
+async function addStudent() {
+  const name = document.getElementById('new-name').value.trim();
+  if (!name) return;
+  const r = await fetch('/api/students', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name}),
+  });
+  if (!r.ok) { alert('追加失敗'); return; }
+  document.getElementById('new-name').value = '';
+  renderList();
+}
+
+async function renameStudent(id, current) {
+  const name = prompt('新しい名前', current);
+  if (!name) return;
+  const r = await fetch(`/api/students/${id}`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name: name.trim()}),
+  });
+  if (!r.ok) { alert('更新失敗'); return; }
+  renderList();
+}
+
+async function deleteStudent(id) {
+  if (!confirm('削除しますか？候補校紐付けは解除されます。')) return;
+  const r = await fetch(`/api/students/${id}`, {method:'DELETE'});
+  if (!r.ok) { alert('削除失敗'); return; }
+  renderList();
+}
+
+async function toggleSaved(sid) {
+  const box = document.getElementById('saved-' + sid);
+  if (!box) return;
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '読み込み中…';
+  try {
+    const items = await (await fetch(`/api/saved?student_id=${sid}`)).json();
+    if (!items.length) {
+      box.innerHTML = '<div class="muted" style="padding:8px">候補校はまだありません</div>';
+      return;
+    }
+    box.innerHTML = items.map(it => {
+      const label = [it.university, it.faculty, it.department].filter(Boolean).join(' ');
+      return `<div class="saved-row">
+        <div>
+          <a href="/app/research/${esc(it.request_id)}">${esc(label)}</a>
+          ${it.memo ? `<div class="muted" style="font-size:.78rem">${esc(it.memo)}</div>` : ''}
+        </div>
+        <button class="btn btn-danger" style="padding:4px 10px;font-size:.78rem" onclick="removeSaved(${it.id}, ${sid})">削除</button>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    box.innerHTML = `<div class="muted">読み込み失敗: ${esc(e.message)}</div>`;
+  }
+}
+
+async function removeSaved(savedId, sid) {
+  if (!confirm('候補校から削除しますか？')) return;
+  const r = await fetch(`/api/saved/${savedId}`, {method:'DELETE'});
+  if (!r.ok) { alert('削除失敗'); return; }
+  toggleSaved(sid); toggleSaved(sid);
+  renderList();
+}
+
+async function batchMatch(sid, name) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,38,87,.4);display:flex;align-items:center;justify-content:center;z-index:100';
+  modal.innerHTML = `
+    <div style="background:#fff;padding:24px;border-radius:var(--radius-lg);width:900px;max-width:96vw;max-height:92vh;overflow:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;color:var(--brand-navy)">🎯 ${esc(name)} の候補校一括診断</h3>
+        <button class="btn" id="b-close">×</button>
+      </div>
+      <p class="muted" style="font-size:.82rem;margin-top:6px">この生徒に紐づいた「完了済み候補校」にMode 3（マッチ度＋必然性）を順に実行します。LLM を多数呼ぶので3-5分かかります。</p>
+      <div style="margin-top:8px">
+        <button class="btn btn-primary" id="b-go">診断を開始</button>
+      </div>
+      <div id="b-result" style="margin-top:14px"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#b-close').onclick = () => modal.remove();
+  modal.querySelector('#b-go').onclick = async () => {
+    const box = modal.querySelector('#b-result');
+    box.innerHTML = '<div class="muted">診断中…（全候補校×LLM。数分かかります）</div>';
+    try {
+      const r = await fetch('/api/diagnosis/batch_match', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({student_id: sid, max_universities: 8}),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({detail: r.status}));
+        box.innerHTML = `<div style="color:var(--red)">失敗: ${esc(e.detail || r.status)}</div>`;
+        return;
+      }
+      const data = await r.json();
+      let html = `<div class="card"><strong>${esc(data.student.name)}</strong>: ${data.succeeded}/${data.total_universities} 件診断完了`;
+      if (data.failed) html += ` <span style="color:var(--red)">(${data.failed} 件失敗)</span>`;
+      html += '</div>';
+
+      if (data.results.length) {
+        html += `<table class="fact-table" style="margin-top:10px"><thead><tr>
+          <th style="width:30%">大学・学部・学科</th>
+          <th style="width:12%">マッチ</th>
+          <th style="width:12%">必然性</th>
+          <th style="width:14%">位置</th>
+          <th>次の一手</th>
+        </tr></thead><tbody>`;
+        data.results.forEach(rr => {
+          const m = Number(rr.match_total) || 0;
+          const n = Number(rr.necessity_total) || 0;
+          const mCls = m >= 80 ? 'conf-high' : m >= 60 ? 'conf-medium' : 'conf-low';
+          const nCls = n >= 64 ? 'conf-high' : n >= 48 ? 'conf-medium' : 'conf-low';
+          const label = [rr.university, rr.faculty, rr.department].filter(Boolean).join(' ');
+          const firstAction = (rr.next_actions || [])[0] || '';
+          html += `<tr>
+            <td><a href="/app/research/${esc(rr.request_id)}">${esc(label)}</a>${rr.memo ? `<div class="muted" style="font-size:.72rem">${esc(rr.memo)}</div>` : ''}</td>
+            <td><span class="conf-badge ${mCls}">${rr.match_total ?? '?'}</span></td>
+            <td><span class="conf-badge ${nCls}">${rr.necessity_total ?? '?'}</span></td>
+            <td style="font-size:.82rem">${esc(rr.map_position_type || '?')}</td>
+            <td style="font-size:.82rem">${esc(firstAction)}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        html += '<div class="muted" style="font-size:.76rem;margin-top:4px">スコア合計順。クリックで各リサーチページへ。</div>';
+      }
+
+      if (data.errors?.length) {
+        html += '<div style="margin-top:10px;padding:8px;background:var(--red-soft)"><strong style="color:var(--red)">失敗</strong><ul style="padding-left:18px;margin:4px 0">';
+        data.errors.forEach(e => { html += `<li>${esc(e.request_id)}: ${esc(e.error)}</li>`; });
+        html += '</ul></div>';
+      }
+
+      box.innerHTML = html;
+    } catch (e) {
+      box.innerHTML = `<div style="color:var(--red)">失敗: ${esc(e.message)}</div>`;
+    }
+  };
+}
+
+async function editProfile(sid) {
+  let s;
+  try {
+    s = await (await fetch(`/api/students/${sid}`)).json();
+  } catch (e) { alert('生徒取得失敗'); return; }
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,38,87,.4);display:flex;align-items:center;justify-content:center;z-index:100';
+  modal.innerHTML = `
+    <div style="background:#fff;padding:24px;border-radius:var(--radius-lg);width:680px;max-width:94vw;max-height:92vh;overflow:auto">
+      <h3 style="margin:0 0 12px;color:var(--brand-navy)">${esc(s.name)} のプロファイル</h3>
+      <p class="muted" style="font-size:.82rem">マッチ度診断で使います。具体的に書くほど精度が上がります。</p>
+      <div class="field" style="margin-top:10px">
+        <label>経験・活動実績 <span class="muted" style="font-size:.72rem">（部活・ボランティア・留学・個人的体験など）</span></label>
+        <textarea id="p-exp" rows="4" style="width:100%" maxlength="4000">${esc(s.profile_experience || '')}</textarea>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>問題意識・関心分野</label>
+        <textarea id="p-con" rows="3" style="width:100%" maxlength="4000">${esc(s.profile_concerns || '')}</textarea>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>将来像 <span class="muted" style="font-size:.72rem">（立場・対象・手段）</span></label>
+        <textarea id="p-fut" rows="3" style="width:100%" maxlength="4000">${esc(s.profile_future || '')}</textarea>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>現時点の志望動機・認識 <span class="muted" style="font-size:.72rem">（任意）</span></label>
+        <textarea id="p-mot" rows="3" style="width:100%" maxlength="4000">${esc(s.profile_motivation || '')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="btn" id="p-cancel">キャンセル</button>
+        <button class="btn btn-primary" id="p-save">保存</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#p-cancel').onclick = () => modal.remove();
+  modal.querySelector('#p-save').onclick = async () => {
+    const body = {
+      profile_experience: modal.querySelector('#p-exp').value,
+      profile_concerns:   modal.querySelector('#p-con').value,
+      profile_future:     modal.querySelector('#p-fut').value,
+      profile_motivation: modal.querySelector('#p-mot').value,
+    };
+    const r = await fetch(`/api/students/${sid}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) { alert('保存失敗'); return; }
+    modal.remove();
+    renderList();
+  };
+}
+</script>
+</body>
+</html>

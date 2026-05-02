@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>招待を受諾 — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+<main class="app-shell">
+  <div class="card" style="max-width:520px;margin:40px auto">
+    <h1 style="margin:0 0 8px;color:var(--brand-navy)">チーム招待</h1>
+    <p class="muted">この招待を受諾してチームに参加します。</p>
+    <button class="btn btn-primary" id="accept-btn">受諾する</button>
+    <div id="msg" style="margin-top:14px"></div>
+  </div>
+</main>
+<script src="/shared/header.js"></script>
+<script>
+renderHeader(document.getElementById('app-header'));
+document.getElementById('accept-btn').addEventListener('click', async () => {
+  const token = location.pathname.split('/invite/')[1];
+  try {
+    const r = await fetch(`/api/teams/invites/accept/${token}`, {method:'POST'});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.status); }
+    const d = await r.json();
+    document.getElementById('msg').innerHTML = `<div style="color:var(--green)">参加しました。<a href="/app/team">チームページへ</a></div>`;
+  } catch (e) {
+    document.getElementById('msg').innerHTML = `<div style="color:var(--red)">受諾失敗: ${e.message}</div>`;
+  }
+});
+</script>
+</body>
+</html>

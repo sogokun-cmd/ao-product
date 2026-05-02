@@ -1,0 +1,14 @@
+.env
+.env.example
+.git/
+__pycache__/
+*.pyc
+*.db
+*.sqlite3
+.agents/
+_deploy_vars.sh
+output/
+venv/
+.venv/
+*.log
+.DS_Store
