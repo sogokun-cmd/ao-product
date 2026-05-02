@@ -9,127 +9,114 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     steps:
-      - name: Health Check
-        id: health
+      - name: Collect Data and Send Report
         run: |
-          HEALTH=$(curl -s --max-time 10 https://ao.helphero.jp/api/health || echo '{"error":"timeout"}')
-          echo "health=$HEALTH" >> $GITHUB_OUTPUT
-          echo "HEALTH: $HEALTH"
+          set +e  # grepのexit 1で止まらないように
 
-      - name: Admin Stats
-        id: stats
-        run: |
+          DATE=$(TZ=Asia/Tokyo date '+%Y-%m-%d')
+
+          # ── ヘルスチェック ──────────────────────────────
+          HEALTH=$(curl -s --max-time 10 https://ao.helphero.jp/api/health)
+          ANTHROPIC=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print('✅' if d.get('providers',{}).get('anthropic') else '❌')" 2>/dev/null || echo "❌")
+          OPENAI=$(echo "$HEALTH"    | python3 -c "import sys,json; d=json.load(sys.stdin); print('✅' if d.get('providers',{}).get('openai')    else '❌')" 2>/dev/null || echo "❌")
+          GOOGLE=$(echo "$HEALTH"   | python3 -c "import sys,json; d=json.load(sys.stdin); print('✅' if d.get('providers',{}).get('google')     else '❌')" 2>/dev/null || echo "❌")
+
+          # ── 管理統計 ────────────────────────────────────
           STATS=$(curl -s -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}" https://ao.helphero.jp/api/admin/stats)
-          echo "stats=$STATS" >> $GITHUB_OUTPUT
-          echo "STATS: $STATS"
+          TOTAL_USERS=$(echo "$STATS"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['total'])"          2>/dev/null || echo "?")
+          NEW_USERS=$(echo "$STATS"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['new_24h'])"        2>/dev/null || echo "?")
+          RESEARCH_24H=$(echo "$STATS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['last_24h'])"    2>/dev/null || echo "?")
+          DONE_24H=$(echo "$STATS"     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['done_24h'])"    2>/dev/null || echo "?")
+          ERROR_24H=$(echo "$STATS"    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['error_24h'])"   2>/dev/null || echo "0")
+          PENDING=$(echo "$STATS"      | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['pending_now'])" 2>/dev/null || echo "0")
+          ERRORS_HTML=$(echo "$STATS"  | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          errs = d.get('recent_errors', [])
+          if errs:
+              print('<br>'.join(f\"{e['msg']} (x{e['count']})\" for e in errs))
+          else:
+              print('なし')
+          " 2>/dev/null || echo "取得失敗")
+          COST_HTML=$(echo "$STATS" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          costs = d.get('llm_cost_24h', [])
+          if costs:
+              print('<br>'.join(f\"{c['provider']}: \${c['cost_usd']} ({c['calls']}calls)\" for c in costs))
+          else:
+              print('計測なし')
+          " 2>/dev/null || echo "取得失敗")
 
-      - name: E2E Tests
-        id: e2e
-        run: |
+          # ── E2Eテスト ───────────────────────────────────
+          icon() { [ "$1" = "200" ] && echo "✅" || echo "❌($1)"; }
+          icon_redirect() { { [ "$1" = "301" ] || [ "$1" = "302" ]; } && echo "✅" || echo "❌($1)"; }
+          icon_auth()     { { [ "$1" = "401" ] || [ "$1" = "403" ]; } && echo "✅" || echo "❌($1)"; }
+
           LP=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/)
-          LOGIN=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/login)
-          REGISTER=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/register)
-          OGP=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/static/ogp.png)
-          ROBOTS=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/robots.txt)
-          APP=$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 https://ao.helphero.jp/app || echo "302")
-          API_UNAUTH=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/api/research)
-          OGP_TAGS=$(curl -s https://ao.helphero.jp/ | grep -oE 'og:(title|image|description)' | tr '\n' ',')
-          SEC_HEADERS=$(curl -s -I https://ao.helphero.jp/ | grep -c 'X-Frame-Options\|X-Content-Type')
+          LOGIN_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/login)
+          REG_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/register)
+          OGP_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/static/ogp.png)
+          ROBOTS_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/robots.txt)
+          APP_S=$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 https://ao.helphero.jp/app; true)
+          API_S=$(curl -s -o /dev/null -w '%{http_code}' https://ao.helphero.jp/api/research)
 
-          echo "lp=$LP" >> $GITHUB_OUTPUT
-          echo "login=$LOGIN" >> $GITHUB_OUTPUT
-          echo "register=$REGISTER" >> $GITHUB_OUTPUT
-          echo "ogp=$OGP" >> $GITHUB_OUTPUT
-          echo "robots=$ROBOTS" >> $GITHUB_OUTPUT
-          echo "app=$APP" >> $GITHUB_OUTPUT
-          echo "api_unauth=$API_UNAUTH" >> $GITHUB_OUTPUT
-          echo "ogp_tags=$OGP_TAGS" >> $GITHUB_OUTPUT
-          echo "sec_headers=$SEC_HEADERS" >> $GITHUB_OUTPUT
+          LP_ICON=$(icon "$LP")
+          LOGIN_ICON=$(icon "$LOGIN_S")
+          REG_ICON=$(icon "$REG_S")
+          OGP_ICON=$(icon "$OGP_S")
+          ROBOTS_ICON=$(icon "$ROBOTS_S")
+          APP_ICON=$(icon_redirect "$APP_S")
+          API_ICON=$(icon_auth "$API_S")
 
-          echo "LP:$LP LOGIN:$LOGIN REGISTER:$REGISTER OGP:$OGP ROBOTS:$ROBOTS APP:$APP API:$API_UNAUTH"
+          OGP_TAGS=$(curl -s https://ao.helphero.jp/ | grep -oE 'og:(title|image|description)' | wc -l || echo 0)
+          OGP_OK=$([ "$OGP_TAGS" -ge 2 ] && echo "✅" || echo "❌(og: $OGP_TAGS件)")
+          SEC_CNT=$(curl -s -I https://ao.helphero.jp/ | grep -c 'X-Frame-Options\|X-Content-Type' || echo 0)
+          SEC_OK=$([ "$SEC_CNT" -ge 1 ] && echo "✅" || echo "❌")
 
-      - name: Send Report
-        run: |
-          HEALTH='${{ steps.health.outputs.health }}'
-          STATS='${{ steps.stats.outputs.stats }}'
-          LP=${{ steps.e2e.outputs.lp }}
-          LOGIN=${{ steps.e2e.outputs.login }}
-          REGISTER=${{ steps.e2e.outputs.register }}
-          OGP=${{ steps.e2e.outputs.ogp }}
-          ROBOTS=${{ steps.e2e.outputs.robots }}
-          APP=${{ steps.e2e.outputs.app }}
-          API_UNAUTH=${{ steps.e2e.outputs.api_unauth }}
-          OGP_TAGS="${{ steps.e2e.outputs.ogp_tags }}"
-          SEC_HEADERS=${{ steps.e2e.outputs.sec_headers }}
-
-          DATE=$(date '+%Y-%m-%d' -d '+9 hours')
-
-          # ステータス判定
-          ok() { [ "$1" = "200" ] && echo "✅" || echo "❌($1)"; }
-          redirect_ok() { [ "$1" = "302" ] || [ "$1" = "301" ] && echo "✅" || echo "❌($1)"; }
-          auth_ok() { [ "$1" = "401" ] || [ "$1" = "403" ] && echo "✅" || echo "❌($1)"; }
-
-          LP_ICON=$(ok $LP)
-          LOGIN_ICON=$(ok $LOGIN)
-          REG_ICON=$(ok $REGISTER)
-          OGP_ICON=$(ok $OGP)
-          ROBOTS_ICON=$(ok $ROBOTS)
-          APP_ICON=$(redirect_ok $APP)
-          API_ICON=$(auth_ok $API_UNAUTH)
-          OGP_OK=$([ -n "$OGP_TAGS" ] && echo "✅" || echo "❌")
-          SEC_OK=$([ "$SEC_HEADERS" -ge 2 ] && echo "✅" || echo "❌")
-
-          # 統計取得
-          TOTAL_USERS=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['total'])" 2>/dev/null || echo "?")
-          NEW_USERS=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['new_24h'])" 2>/dev/null || echo "?")
-          RESEARCH_24H=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['last_24h'])" 2>/dev/null || echo "?")
-          DONE_24H=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['done_24h'])" 2>/dev/null || echo "?")
-          ERROR_24H=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['error_24h'])" 2>/dev/null || echo "0")
-          PENDING=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['pending_now'])" 2>/dev/null || echo "0")
-          ERRORS_STR=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); errs=d.get('recent_errors',[]); print('<br>'.join([f\"{e['msg']} (x{e['count']})\"] for e in errs)) if errs else print('なし')" 2>/dev/null || echo "取得失敗")
-          COST_STR=$(echo $STATS | python3 -c "import sys,json; d=json.load(sys.stdin); costs=d.get('llm_cost_24h',[]); print('<br>'.join([f\"{c['provider']}: \${c['cost_usd']} ({c['calls']}calls)\"] for c in costs)) if costs else print('計測なし')" 2>/dev/null || echo "取得失敗")
-
-          # LLM状態
-          ANTHROPIC=$(echo $HEALTH | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('providers',{}); print('✅' if p.get('anthropic') else '❌')" 2>/dev/null || echo "❌")
-          OPENAI=$(echo $HEALTH | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('providers',{}); print('✅' if p.get('openai') else '❌')" 2>/dev/null || echo "❌")
-          GOOGLE=$(echo $HEALTH | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('providers',{}); print('✅' if p.get('google') else '❌')" 2>/dev/null || echo "❌")
-
-          # 異常判定
+          # ── 異常判定 ────────────────────────────────────
           WARN=""
           [ "$LP" != "200" ] && WARN="⚠️"
-          [ "$LOGIN" != "200" ] && WARN="⚠️"
-          [ "$ERROR_24H" -ge 5 ] 2>/dev/null && WARN="⚠️"
-          [ "$PENDING" -ge 10 ] 2>/dev/null && WARN="⚠️"
+          [ "$LOGIN_S" != "200" ] && WARN="⚠️"
+          [ "$REG_S" != "200" ] && WARN="⚠️"
+          [ "$ANTHROPIC" = "❌" ] && WARN="⚠️"
+          python3 -c "exit(0 if int('${ERROR_24H:-0}') < 5 else 1)" 2>/dev/null && true || WARN="⚠️"
+          python3 -c "exit(0 if int('${PENDING:-0}') < 10 else 1)" 2>/dev/null && true || WARN="⚠️"
 
           SUBJECT="${WARN}【AOリサーチ】日次レポート ${DATE}"
 
+          # ── HTMLメール ──────────────────────────────────
           HTML="<div style='font-family:sans-serif;max-width:600px;margin:0 auto'>
-          <h2 style='color:#4f46e5'>AOリサーチ 日次レポート — ${DATE}</h2>
-          <table style='width:100%;border-collapse:collapse'>
-          <tr><td style='padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280'>LLM状態</td><td style='padding:8px;border-bottom:1px solid #e5e7eb'>anthropic ${ANTHROPIC} &nbsp; openai ${OPENAI} &nbsp; google ${GOOGLE}</td></tr>
-          <tr><td style='padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280'>ユーザー</td><td style='padding:8px;border-bottom:1px solid #e5e7eb'>累計 ${TOTAL_USERS}人 / 昨日 +${NEW_USERS}人</td></tr>
-          <tr><td style='padding:8px;border-bottom:1px solid #e5e7eb;color:#6b7280'>リサーチ</td><td style='padding:8px;border-bottom:1px solid #e5e7eb'>昨日 ${RESEARCH_24H}件（成功 ${DONE_24H} / 失敗 ${ERROR_24H}）待機中 ${PENDING}件</td></tr>
+          <h2 style='color:#4f46e5;border-bottom:2px solid #e5e7eb;padding-bottom:8px'>AOリサーチ 日次レポート — ${DATE}</h2>
+          <h3 style='color:#374151'>📊 利用状況</h3>
+          <table style='width:100%;border-collapse:collapse;font-size:14px'>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>LLM状態</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>anthropic ${ANTHROPIC} &nbsp; openai ${OPENAI} &nbsp; google ${GOOGLE}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>ユーザー</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>累計 ${TOTAL_USERS}人 / 昨日 +${NEW_USERS}人登録</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>リサーチ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>昨日 ${RESEARCH_24H}件（成功 ${DONE_24H} / 失敗 ${ERROR_24H}）待機中 ${PENDING}件</td></tr>
           </table>
-          <h3 style='color:#4f46e5;margin-top:24px'>E2Eテスト結果</h3>
-          <table style='width:100%;border-collapse:collapse'>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>トップページ</td><td>${LP_ICON}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>ログインページ</td><td>${LOGIN_ICON}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>登録ページ</td><td>${REG_ICON}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>OGP画像</td><td>${OGP_ICON}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>robots.txt</td><td>${ROBOTS_ICON}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>認証リダイレクト</td><td>${APP_ICON}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>API保護</td><td>${API_ICON}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>OGPタグ</td><td>${OGP_OK}</td></tr>
-          <tr><td style='padding:6px;border-bottom:1px solid #e5e7eb;color:#6b7280'>セキュリティヘッダー</td><td>${SEC_OK}</td></tr>
+          <h3 style='color:#374151;margin-top:20px'>🔍 E2Eテスト結果</h3>
+          <table style='width:100%;border-collapse:collapse;font-size:14px'>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>トップページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${LP_ICON}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>ログインページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${LOGIN_ICON}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>登録ページ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${REG_ICON}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>OGP画像</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${OGP_ICON}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>robots.txt</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${ROBOTS_ICON}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>認証リダイレクト (/app)</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${APP_ICON}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>API保護</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${API_ICON}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>OGPタグ</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${OGP_OK}</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>セキュリティヘッダー</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${SEC_OK}</td></tr>
           </table>
-          <h3 style='color:#4f46e5;margin-top:24px'>エラーログ</h3>
-          <p style='color:#374151'>${ERRORS_STR}</p>
-          <h3 style='color:#4f46e5'>LLMコスト（24h）</h3>
-          <p style='color:#374151'>${COST_STR}</p>
-          <p style='color:#9ca3af;font-size:12px;margin-top:32px'>AOリサーチ 自動監視 — GitHub Actions</p>
+          <h3 style='color:#374151;margin-top:20px'>🚨 エラーログ（直近24h）</h3>
+          <p style='font-size:14px;color:#374151'>${ERRORS_HTML}</p>
+          <h3 style='color:#374151'>💰 LLMコスト（直近24h）</h3>
+          <p style='font-size:14px;color:#374151'>${COST_HTML}</p>
+          <p style='color:#9ca3af;font-size:12px;margin-top:32px;border-top:1px solid #f3f4f6;padding-top:12px'>AOリサーチ 自動監視 — GitHub Actions</p>
           </div>"
 
+          # ── 送信 ────────────────────────────────────────
           curl -s -X POST https://api.resend.com/emails \
             -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d "{\"from\":\"AOリサーチBot <noreply@ao.helphero.jp>\",\"to\":[\"sogokun@sogogatacom.com\"],\"subject\":\"${SUBJECT}\",\"html\":\"${HTML}\"}"
+            -d "{\"from\":\"AOリサーチBot <noreply@ao.helphero.jp>\",\"to\":[\"sogokun@sogogatacom.com\"],\"subject\":\"${SUBJECT}\",\"html\":$(echo "$HTML" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}"
+
+          echo "送信完了: $SUBJECT"
