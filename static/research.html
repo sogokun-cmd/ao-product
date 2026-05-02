@@ -161,15 +161,15 @@
         <input id="f-kw" placeholder="例: 総合型選抜 公募" maxlength="200">
       </div>
       <div class="field">
-        <label>募集要項PDF <span style="color:var(--brand-blue);font-size:.78rem">★強く推奨</span></label>
+        <label>募集要項PDF <span style="color:var(--muted);font-size:.78rem">任意</span></label>
         <div class="pdf-toggle">
           <button type="button" class="pdf-toggle-btn active" id="pdf-tab-url" onclick="setPdfTab('url')">URLを貼る</button>
           <button type="button" class="pdf-toggle-btn" id="pdf-tab-file" onclick="setPdfTab('file')">ファイルをアップロード</button>
         </div>
         <div id="pdf-url-area">
-          <input id="f-pdf" placeholder="https://...例: 公式募集要項のPDF URL" maxlength="500">
+          <input id="f-pdf" placeholder="https://... （空欄でも自動検索します）" maxlength="500">
           <div class="hint" style="font-size:.76rem;margin-top:4px;color:var(--ink-soft)">
-            大学公式の募集要項PDFのURLを貼り付けてください。viewer ページや埋め込みビューアのURLでも抽出を試みます。
+            入力しなくても公式PDFを自動で探します。PDFが見つからない・まだ公開されていない場合は空欄のままで大丈夫です。
           </div>
         </div>
         <div id="pdf-file-area" style="display:none">
@@ -352,17 +352,6 @@ async function startResearch() {
   if (!body.university) { alert('大学名を入力してください'); return; }
   if (!body.faculty)    { alert('学部を入力してください'); return; }
   if (!body.department) { alert('学科を入力してください'); return; }
-  if (!pdfUrl && !pdfText) {
-    const ok = confirm(
-      'PDFが未指定です。\n\n' +
-      'PDFを指定しない場合:\n' +
-      '・処理時間が10〜25分かかる可能性\n' +
-      '・公式本体PDFを自動探索するが失敗することがある\n' +
-      '・結果の精度が下がる可能性\n\n' +
-      'PDFなしで続行しますか？\n（キャンセルするとPDFを指定できます）'
-    );
-    if (!ok) return;
-  }
   document.getElementById('btn-go').disabled = true;
   document.getElementById('progress-card').style.display = 'block';
   document.getElementById('progress-title').textContent = '収集中…';
