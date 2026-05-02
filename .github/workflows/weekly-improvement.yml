@@ -1,0 +1,146 @@
+name: Weekly Improvement
+
+on:
+  schedule:
+    - cron: '0 23 * * 0'  # JST 月曜 8:00
+  workflow_dispatch:
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect Stats & Code Review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set +e
+          DATE=$(TZ=Asia/Tokyo date '+%Y-%m-%d')
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+
+          # 週次統計
+          STATS=$(curl -s -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}" https://ao.helphero.jp/api/admin/stats)
+          TOTAL=$(echo "$STATS"   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['total'])"    2>/dev/null || echo "?")
+          NEW_7D=$(echo "$STATS"  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['users']['new_7d'])"   2>/dev/null || echo "?")
+          RESEARCH=$(echo "$STATS"| python3 -c "import sys,json; d=json.load(sys.stdin); print(d['research']['total'])" 2>/dev/null || echo "?")
+          PLANS=$(echo "$STATS"   | python3 -c "
+          import sys,json
+          d=json.load(sys.stdin)
+          plans=d.get('plans',{})
+          print(' / '.join(f'{k}: {v}人' for k,v in plans.items()))
+          " 2>/dev/null || echo "?")
+          echo "total=$TOTAL"     >> $GITHUB_OUTPUT
+          echo "new_7d=$NEW_7D"   >> $GITHUB_OUTPUT
+          echo "research=$RESEARCH" >> $GITHUB_OUTPUT
+          echo "plans=$PLANS"     >> $GITHUB_OUTPUT
+
+          # Claudeにコードレビューを依頼
+          SOURCE=$(cat api/research.py api/billing.py worker.py core/llm_router.py database.py 2>/dev/null | head -c 12000)
+          PROMPT="あなたはAOリサーチ（FastAPI Webサービス）のコードレビュアーです。
+
+          ## 今週の統計
+          - 累計ユーザー: ${TOTAL}人 / 今週+${NEW_7D}人
+          - 累計リサーチ: ${RESEARCH}件
+          - プラン分布: ${PLANS}
+
+          ## ソースコード（抜粋）
+          \`\`\`python
+          ${SOURCE}
+          \`\`\`
+
+          ## 依頼
+          コードを読んで改善提案を3〜5件、優先度つきでまとめてください。
+          以下の形式で返してください（HTMLで使うのでタグは使わない）：
+
+          PROPOSAL_1: [高/中/低] タイトル | 説明（1〜2文）
+          PROPOSAL_2: [高/中/低] タイトル | 説明
+          PROPOSAL_3: [高/中/低] タイトル | 説明
+          ...
+
+          COMMENT: 全体的な所感（2〜3文）"
+
+          RESPONSE=$(python3 -c "
+          import urllib.request, json, os, sys
+          prompt = '''$PROMPT'''
+          payload = json.dumps({
+              'model': 'claude-sonnet-4-6',
+              'max_tokens': 1024,
+              'messages': [{'role': 'user', 'content': prompt}]
+          }).encode()
+          req = urllib.request.Request(
+              'https://api.anthropic.com/v1/messages',
+              data=payload,
+              headers={
+                  'x-api-key': os.environ['ANTHROPIC_API_KEY'],
+                  'anthropic-version': '2023-06-01',
+                  'content-type': 'application/json',
+              },
+              method='POST'
+          )
+          with urllib.request.urlopen(req, timeout=60) as resp:
+              print(json.loads(resp.read())['content'][0]['text'])
+          " 2>/dev/null || echo "PROPOSAL_1: [中] コードレビュー取得失敗 | Claude APIへの接続に失敗しました
+          COMMENT: 手動でご確認ください。")
+
+          echo "$RESPONSE"
+
+          # 提案をHTML用に変換
+          PROPOSALS_HTML=$(echo "$RESPONSE" | python3 -c "
+          import sys, re
+          lines = sys.stdin.read()
+          items = re.findall(r'PROPOSAL_\d+:\s*\[([^\]]+)\]\s*([^|]+)\|(.+)', lines)
+          html = ''
+          colors = {'高': '#dc2626', '中': '#d97706', '低': '#6b7280'}
+          for priority, title, desc in items:
+              p = priority.strip(); t = title.strip(); d = desc.strip()
+              color = colors.get(p, '#6b7280')
+              html += f\"<tr><td style='padding:8px;border-bottom:1px solid #f3f4f6'><span style='color:{color};font-weight:700'>[{p}]</span> {t}</td><td style='padding:8px;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px'>{d}</td></tr>\"
+          print(html if html else '<tr><td>提案なし</td></tr>')
+          " 2>/dev/null || echo "<tr><td>取得失敗</td></tr>")
+
+          COMMENT=$(echo "$RESPONSE" | python3 -c "
+          import sys, re
+          m = re.search(r'COMMENT:\s*(.+)', sys.stdin.read(), re.DOTALL)
+          print(m.group(1).strip()[:300] if m else '')
+          " 2>/dev/null || echo "")
+
+          {
+            echo "proposals_html<<EOF_PROP"
+            echo "$PROPOSALS_HTML"
+            echo "EOF_PROP"
+          } >> $GITHUB_OUTPUT
+          {
+            echo "comment<<EOF_COMMENT"
+            echo "$COMMENT"
+            echo "EOF_COMMENT"
+          } >> $GITHUB_OUTPUT
+
+      - name: Send Report
+        run: |
+          DATE="${{ steps.review.outputs.date }}"
+          HTML="<div style='font-family:sans-serif;max-width:600px;margin:0 auto'>
+          <h2 style='color:#4f46e5;border-bottom:2px solid #e5e7eb;padding-bottom:8px'>AOリサーチ 週次レポート — ${DATE}</h2>
+          <h3 style='color:#374151'>📊 週間サマリー</h3>
+          <table style='width:100%;border-collapse:collapse;font-size:14px'>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>新規登録</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>今週 +${{ steps.review.outputs.new_7d }}人（累計 ${{ steps.review.outputs.total }}人）</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>リサーチ累計</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.review.outputs.research }}件</td></tr>
+          <tr><td style='padding:6px 8px;color:#6b7280;border-bottom:1px solid #f3f4f6'>プラン分布</td><td style='padding:6px 8px;border-bottom:1px solid #f3f4f6'>${{ steps.review.outputs.plans }}</td></tr>
+          </table>
+          <h3 style='color:#374151;margin-top:20px'>💡 改善提案（Claude コードレビュー）</h3>
+          <table style='width:100%;border-collapse:collapse;font-size:14px'>
+          ${{ steps.review.outputs.proposals_html }}
+          </table>
+          <h3 style='color:#374151;margin-top:20px'>🗒 所感</h3>
+          <p style='font-size:14px;color:#374151;line-height:1.6'>${{ steps.review.outputs.comment }}</p>
+          <p style='color:#9ca3af;font-size:12px;margin-top:32px;border-top:1px solid #f3f4f6;padding-top:12px'>AOリサーチ 自動監視 — GitHub Actions</p>
+          </div>"
+
+          curl -s -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"from\":\"AOリサーチBot <noreply@ao.helphero.jp>\",\"to\":[\"sogokun@sogogatacom.com\"],\"subject\":\"【AOリサーチ】週次レポート ${DATE}\",\"html\":$(echo "$HTML" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}"
+
+          echo "週次レポート送信完了"
