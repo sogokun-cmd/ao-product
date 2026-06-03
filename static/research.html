@@ -76,6 +76,20 @@
   .fact-table th, .fact-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
   .fact-table th { background: var(--bg); font-weight: 700; color: var(--brand-navy); width: 30%; font-size: .82rem; }
   .fact-table tr:last-child th, .fact-table tr:last-child td { border-bottom: 0; }
+  /* 出典バッジ（グラデーション5段階） */
+  .src-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: .72rem; font-weight: 600; padding: 2px 7px;
+    border-radius: 10px; border: 1px solid transparent;
+    white-space: nowrap; margin-left: 4px;
+  }
+  .src-official-pdf  { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+  .src-official-html { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+  .src-aggregator-major { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+  .src-aggregator-minor { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+  .src-unknown       { background: #f3f4f6; color: #6b7280; border-color: #d1d5db; }
+  .src-ref-main      { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+
   .conf-badge {
     font-size: .68rem; padding: 1px 7px; border-radius: 8px; margin-left: 6px; font-weight: 700;
   }
@@ -712,10 +726,40 @@ function renderResult(req, result) {
       conf = item.confidence || 'unknown';
       sources = item.provenance || [];
     }
-    const confLabel = {high:'高', medium:'中', low:'低', unknown:'?'}[conf];
-    const confText = usedRefAsMain ? '参考（非公式）' : `出典 ${confLabel}`;
-    const sourceHtml = sources.length ? `<div class="source-list">${
-      sources.slice(0, 5).map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener" class="source-link ${esc(s.type)}">${esc(typeLabel(s.type))}${s.year ? ' ' + s.year : ''} ↗</a>`).join('')
+    // 出典バッジ: 実際のソース種別を見せる5段階グラデーション
+    const _AGGREGATOR_LABELS = {
+      'passnavi.evidus.com': 'パスナビ', 'passnavi.com': 'パスナビ',
+      'shingakunet.com': 'リクナビ進学', 'manabi.benesse.ne.jp': 'マナビジョン',
+      'toshin.com': '東進', 'kawai-juku.ac.jp': '河合塾',
+      'yozemi.ac.jp': '代ゼミ', 'studysapuri.jp': 'スタサプ',
+      'mynavi.jp': 'マイナビ',
+    };
+    function _srcBadgeHtml(srcs, isRefMain) {
+      if (isRefMain) return '<span class="src-badge src-ref-main">📰 参考（非公式）</span>';
+      if (!srcs || !srcs.length) return '<span class="src-badge src-unknown">❓ 出典不明</span>';
+      // 最も信頼性の高いソースを探す
+      const best = srcs.find(s => s.type === 'official_pdf')
+                || srcs.find(s => s.type === 'official_html')
+                || srcs.find(s => s.type === 'aggregator')
+                || srcs[0];
+      if (best.type === 'official_pdf') {
+        return `<a href="${esc(best.url)}" target="_blank" rel="noopener" class="src-badge src-official-pdf">📄 公式PDF ↗</a>`;
+      }
+      if (best.type === 'official_html') {
+        return `<a href="${esc(best.url)}" target="_blank" rel="noopener" class="src-badge src-official-html">🌐 公式HP ↗</a>`;
+      }
+      if (best.type === 'aggregator') {
+        try {
+          const host = new URL(best.url).hostname.replace(/^www\./, '');
+          const lbl = _AGGREGATOR_LABELS[host] || host.split('.')[0];
+          return `<a href="${esc(best.url)}" target="_blank" rel="noopener" class="src-badge src-aggregator-major">📰 ${esc(lbl)} ↗</a>`;
+        } catch { return '<span class="src-badge src-aggregator-minor">📰 参考情報</span>'; }
+      }
+      return '<span class="src-badge src-unknown">❓ 出典不明</span>';
+    }
+    const sourceBadge = _srcBadgeHtml(sources, usedRefAsMain);
+    const sourceHtml = sources.length > 1 ? `<div class="source-list">${
+      sources.slice(1, 4).map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener" class="source-link ${esc(s.type)}">${esc(typeLabel(s.type))}${s.year ? ' ' + s.year : ''} ↗</a>`).join('')
     }</div>` : '';
     // 主表示に使った最初の 1 件を除いて残りを参考表示
     const remainingRefs = usedRefAsMain ? refsForKey.slice(1) : refsForKey;
@@ -749,7 +793,7 @@ function renderResult(req, result) {
         extraNote = '<div class="unknown-note">倍率は大学・予備校サイトが非公表にしている場合があります。過去年度の公開情報がある場合は参考値として下に表示されます。</div>';
       }
     }
-    html += `<tr><th>${esc(label)}</th><td>${valueHtml}${unpublishedBadge}<span class="conf-badge conf-${conf}">${esc(confText)}</span>${knowledgeBadge}${sourceHtml}${refsHtml}${extraNote}</td></tr>`;
+    html += `<tr><th>${esc(label)}</th><td>${valueHtml}${unpublishedBadge}${sourceBadge}${knowledgeBadge}${sourceHtml}${refsHtml}${extraNote}</td></tr>`;
   }
   html += '</tbody></table></div>';
 
