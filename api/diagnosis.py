@@ -194,7 +194,7 @@ def _build_user_prompt(student: dict, research: dict) -> str:
 
 @router.post("/match", summary="Mode 3: マッチ度診断 + 必然性スコア")
 @limiter.limit("20/minute")
-async def diagnose_match(request: Request, body: MatchRequest, ctx: dict = Depends(require_plan("premium"))):
+async def diagnose_match(request: Request, body: MatchRequest, ctx: dict = Depends(require_plan("standard"))):
     user = ctx["user"]
     set_llm_context(user_id=user["user_id"], request_id=str(uuid.uuid4()))
     db = get_db()
@@ -430,7 +430,7 @@ def _build_phase_user_prompt(month: int, status: str, student: dict | None, rese
 
 @router.post("/phase_strategy", summary="Mode 6: 段階別戦略（時期 + 現状 → 今やるべき行動）")
 @limiter.limit("30/minute")
-async def diagnose_phase_strategy(request: Request, body: PhaseStrategyRequest, ctx: dict = Depends(require_plan("premium"))):
+async def diagnose_phase_strategy(request: Request, body: PhaseStrategyRequest, ctx: dict = Depends(require_plan("standard"))):
     user = ctx["user"]
     set_llm_context(user_id=user["user_id"], request_id=str(uuid.uuid4()))
     db = get_db()
@@ -569,7 +569,7 @@ async def diagnose_disclosure(request: Request, body: DisclosureLevelRequest, ct
 
 @router.post("/competition_map", summary="v2診断4: 競合マップ診断")
 @limiter.limit("30/minute")
-async def diagnose_competition(request: Request, body: CompetitionMapRequest, ctx: dict = Depends(require_plan("premium"))):
+async def diagnose_competition(request: Request, body: CompetitionMapRequest, ctx: dict = Depends(require_plan("standard"))):
     user = ctx["user"]
     set_llm_context(user_id=user["user_id"], request_id=str(uuid.uuid4()))
     db = get_db()

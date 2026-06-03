@@ -953,12 +953,19 @@ function renderResult(req, result) {
   if (_me?.plan?.features?.save) {
     document.getElementById('btn-save').style.display = 'inline-flex';
   }
-  // 照合ボタンは students プラン（tutor 以上）で有効
-  if (_me?.plan?.features?.students) {
+  // 診断ボタン: standard以上（マッチ度・段階別戦略）
+  if (_me?.plan?.features?.diagnosis) {
     document.getElementById('btn-match').style.display = 'inline-flex';
-    document.getElementById('btn-stress').style.display = 'inline-flex';
     document.getElementById('btn-phase').style.display = 'inline-flex';
     document.getElementById('btn-more').style.display = 'inline-flex';
+  }
+  // 志望理由書系: premium以上（耐圧テスト・自己開示・情報密度）
+  if (_me?.plan?.features?.diagnosis_writing) {
+    document.getElementById('btn-stress').style.display = 'inline-flex';
+  }
+  // 生徒管理: tutor以上
+  if (_me?.plan?.features?.students) {
+    document.getElementById('btn-match').style.display = 'inline-flex';
   }
 }
 

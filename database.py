@@ -210,9 +210,9 @@ def init_db() -> None:
             ("free",     "Free",         0,    3,
              '{"research":true,"compare":"light","save":false}'),
             ("standard", "スタンダード", 1980,    8,
-             '{"research":true,"compare":"light","save":true,"diagnosis":false,"analysis":false}'),
+             '{"research":true,"compare":"light","save":true,"diagnosis":true,"analysis":false}'),
             ("premium",  "プレミアム",  3980,   20,
-             '{"research":true,"compare":true,"save":true,"diagnosis":true,"analysis":true}'),
+             '{"research":true,"compare":true,"save":true,"diagnosis":true,"diagnosis_writing":true,"analysis":true}'),
             ("student",  "Student",    1980,   20,
              '{"research":true,"compare":"light","save":true}'),
             ("tutor",    "Tutor",      6980,   80,
@@ -335,8 +335,10 @@ def init_db() -> None:
 
     # ── プランマスタ既存行のアップデート（features_json の差分修正） ────────────
     for code, features in [
-        ("tutor",  '{"research":true,"compare":true,"save":true,"diagnosis":true,"analysis":true,"students":true}'),
-        ("school", '{"research":true,"compare":true,"save":true,"diagnosis":true,"analysis":true,"students":true,"team":true}'),
+        ("standard", '{"research":true,"compare":"light","save":true,"diagnosis":true,"analysis":false}'),
+        ("premium",  '{"research":true,"compare":true,"save":true,"diagnosis":true,"diagnosis_writing":true,"analysis":true}'),
+        ("tutor",    '{"research":true,"compare":true,"save":true,"diagnosis":true,"diagnosis_writing":true,"analysis":true,"students":true}'),
+        ("school",   '{"research":true,"compare":true,"save":true,"diagnosis":true,"diagnosis_writing":true,"analysis":true,"students":true,"team":true}'),
     ]:
         conn.execute(
             "UPDATE plans SET features_json=? WHERE code=?",
