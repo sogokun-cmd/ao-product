@@ -39,6 +39,7 @@ from api.diagnosis  import router as diagnosis_router
 from api.knowledge  import router as knowledge_router
 from api.upload     import router as upload_router
 from api.admin      import router as admin_router
+from api.feedback   import router as feedback_router
 from auth.routes        import router as auth_router
 from auth.mobile_routes import router as mobile_auth_router
 from auth.deps         import get_current_user
@@ -165,6 +166,7 @@ app.include_router(diagnosis_router)
 app.include_router(knowledge_router)
 app.include_router(upload_router)
 app.include_router(admin_router)
+app.include_router(feedback_router)
 app.include_router(auth_router)
 app.include_router(mobile_auth_router)
 

@@ -319,6 +319,20 @@ def init_db() -> None:
             pass  # カラム既存
     conn.commit()
 
+    # ── フィードバック ─────────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS feedback (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            request_id  TEXT    REFERENCES research_requests(id) ON DELETE SET NULL,
+            rating      INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+            comment     TEXT    NOT NULL DEFAULT '',
+            created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id, created_at DESC)")
+    conn.commit()
+
     # ── プランマスタ既存行のアップデート（features_json の差分修正） ────────────
     for code, features in [
         ("tutor",  '{"research":true,"compare":true,"save":true,"diagnosis":true,"analysis":true,"students":true}'),

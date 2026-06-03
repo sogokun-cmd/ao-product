@@ -42,6 +42,17 @@
   .unknown-note { font-size: .76rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
 
   .result-wrap { margin-top: 18px; display: none; }
+  .feedback-widget {
+    margin-top: 20px; background: #fff; border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 22px; text-align: center;
+  }
+  .feedback-widget .fb-title { font-size: .9rem; font-weight: 600; color: var(--ink); margin-bottom: 12px; }
+  .stars { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; }
+  .stars span { font-size: 1.8rem; cursor: pointer; transition: transform .1s; color: #d1d5db; }
+  .stars span:hover, .stars span.active { color: #f59e0b; transform: scale(1.2); }
+  .fb-comment { width: 100%; box-sizing: border-box; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-family: inherit; font-size: .88rem; resize: vertical; min-height: 72px; margin-bottom: 10px; outline: none; }
+  .fb-comment:focus { border-color: var(--brand-blue); }
+  .fb-done { color: var(--muted); font-size: .88rem; padding: 10px 0; }
   .result-header {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
     flex-wrap: wrap; gap: 10px;
@@ -231,6 +242,19 @@
     <div id="tag-section" style="display:none" class="tag-section"></div>
     <div id="pdf-notice"></div>
     <div id="result-body"></div>
+
+    <div class="feedback-widget" id="feedback-widget" style="display:none">
+      <div class="fb-title">この結果は役に立ちましたか？</div>
+      <div class="stars" id="fb-stars">
+        <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
+        <span data-v="4">★</span><span data-v="5">★</span>
+      </div>
+      <div id="fb-form" style="display:none">
+        <textarea class="fb-comment" id="fb-comment" placeholder="一言コメント（任意）"></textarea>
+        <button class="btn btn-primary" onclick="submitFeedback()" style="width:100%">送信する</button>
+      </div>
+      <div class="fb-done" id="fb-done" style="display:none">ありがとうございます！フィードバックを受け取りました 🙏</div>
+    </div>
   </div>
 </main>
 
@@ -878,6 +902,9 @@ function renderResult(req, result) {
   // シェアボタンは全員に表示（done の場合）
   document.getElementById('btn-share').style.display = 'inline-flex';
 
+  // フィードバックウィジェットを初期化
+  initFeedback(_currentRequestId);
+
   // 保存ボタンはプランで判定
   if (_me?.plan?.features?.save) {
     document.getElementById('btn-save').style.display = 'inline-flex';
@@ -889,6 +916,49 @@ function renderResult(req, result) {
     document.getElementById('btn-phase').style.display = 'inline-flex';
     document.getElementById('btn-more').style.display = 'inline-flex';
   }
+}
+
+// ── フィードバック ─────────────────────────────────────────────────────────
+let _fbRating = 0;
+
+function initFeedback(requestId) {
+  const widget = document.getElementById('feedback-widget');
+  const stars = document.querySelectorAll('#fb-stars span');
+  widget.style.display = 'block';
+  _fbRating = 0;
+
+  stars.forEach(s => {
+    s.addEventListener('mouseenter', () => {
+      stars.forEach(x => x.classList.toggle('active', x.dataset.v <= s.dataset.v));
+    });
+    s.addEventListener('mouseleave', () => {
+      stars.forEach(x => x.classList.toggle('active', x.dataset.v <= _fbRating));
+    });
+    s.addEventListener('click', () => {
+      _fbRating = parseInt(s.dataset.v);
+      stars.forEach(x => x.classList.toggle('active', x.dataset.v <= _fbRating));
+      document.getElementById('fb-form').style.display = 'block';
+    });
+  });
+
+  window._fbRequestId = requestId;
+}
+
+async function submitFeedback() {
+  if (!_fbRating) return;
+  const comment = document.getElementById('fb-comment').value;
+  try {
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_id: window._fbRequestId, rating: _fbRating, comment }),
+    });
+    if (!res.ok && res.status !== 409) throw new Error();
+  } catch (_) {}
+  document.getElementById('fb-form').style.display = 'none';
+  document.getElementById('fb-stars').style.display = 'none';
+  document.getElementById('fb-title') && (document.querySelector('.fb-title').style.display = 'none');
+  document.getElementById('fb-done').style.display = 'block';
 }
 
 function shareResult() {
