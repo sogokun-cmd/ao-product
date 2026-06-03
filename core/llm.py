@@ -67,13 +67,17 @@ class AnthropicProvider(LLMProvider):
             }]
         else:
             system_blocks = system
-        resp = client.messages.create(
+        # claude-opus-4-x 以降は temperature が廃止
+        _no_temp = model.startswith("claude-opus-4")
+        create_kwargs = dict(
             model=model,
             max_tokens=max_tokens,
-            temperature=temperature,
             system=system_blocks,
             messages=[{"role": "user", "content": user}],
         )
+        if not _no_temp:
+            create_kwargs["temperature"] = temperature
+        resp = client.messages.create(**create_kwargs)
         text = "".join(getattr(b, "text", "") for b in resp.content)
         usage = None
         if hasattr(resp, "usage"):
