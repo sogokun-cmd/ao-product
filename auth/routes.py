@@ -160,6 +160,21 @@ async def resend_verification(request: Request, email: str = Form(...)):
     )
 
 
+# ── Token Refresh ───────────────────────────────────────────────────────────
+
+@router.post("/refresh")
+async def refresh_token(request: Request):
+    """JWT を最新プランで再発行する（checkout後に呼ぶ）。"""
+    from auth.deps import require_user, get_active_plan
+    from fastapi.responses import JSONResponse
+    user = require_user(request)
+    plan = get_active_plan(user["user_id"])["plan_code"]
+    token = create_token(user["user_id"], user["email"], plan, user.get("name", ""))
+    resp = JSONResponse({"ok": True, "plan": plan})
+    resp.set_cookie(COOKIE_KEY, token, max_age=_MAX_AGE, httponly=True, samesite="lax", secure=_SECURE_COOKIE)
+    return resp
+
+
 # ── Logout ──────────────────────────────────────────────────────────────────
 
 @router.post("/logout")

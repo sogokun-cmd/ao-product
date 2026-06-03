@@ -102,15 +102,36 @@ function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replac
   // Checkout 完了メッセージ
   const params = new URLSearchParams(location.search);
   if (params.get('checkout') === 'success') {
+    history.replaceState(null, '', '/app/account');
+    // Webhookがまだ来ていない可能性があるため、プランが変わるまで最大15秒ポーリング
     const banner = document.createElement('div');
     banner.style.cssText = 'background:var(--brand-light);border:1px solid var(--brand-blue);border-radius:var(--radius);padding:14px;margin-bottom:14px;color:var(--brand-navy);font-weight:600;';
-    banner.textContent = 'プランの変更が完了しました。';
+    banner.textContent = '⏳ プランを確認中…';
     document.querySelector('.app-shell').prepend(banner);
-    history.replaceState(null, '', '/app/account');
+    (async () => {
+      for (let i = 0; i < 8; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const r = await fetch('/api/me');
+          if (r.ok) {
+            const d = await r.json();
+            if (d.plan?.plan_code !== 'free') {
+              banner.textContent = `✅ ${esc(d.plan.name)} プランへの変更が完了しました。`;
+              // JWT を最新プランで更新
+              await fetch('/auth/refresh', { method: 'POST' }).catch(() => {});
+              // プラン表示を更新
+              location.reload();
+              return;
+            }
+          }
+        } catch (_) {}
+      }
+      banner.textContent = 'プランの変更が完了しました。反映まで少々お待ちください。';
+    })();
   }
   if (params.get('checkout') === 'pack_success') {
     const banner = document.createElement('div');
-    banner.style.cssText = 'background:var(--green-soft);border:1px solid var(--green);border-radius:var(--radius);padding:14px;margin-bottom:14px;color:var(--green);font-weight:600;';
+    banner.style.cssText = 'background:#f0fdf4;border:1px solid #86efac;border-radius:var(--radius);padding:14px;margin-bottom:14px;color:#15803d;font-weight:600;';
     banner.textContent = 'クレジットパックの購入が完了しました。残高に反映されています。';
     document.querySelector('.app-shell').prepend(banner);
     history.replaceState(null, '', '/app/account');
