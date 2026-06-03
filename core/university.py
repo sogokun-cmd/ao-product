@@ -367,8 +367,12 @@ def _backfill_unknown_fields(university_data: dict) -> None:
                 r"計\s*(\d+)\s*名",
                 r"募集人員\s*[：:]\s*(\d+)\s*名",
                 r"募集人員\s*(\d+)\s*名",
+                r"募集定員\s*(\d+)\s*名",
+                r"選抜定員\s*(\d+)\s*名",
+                r"定員\s*[：:]\s*(\d+)\s*名",
                 r"定員\s*(\d+)\s*名",
                 r"(\d+)\s*名程度",
+                r"(\d+)\s*名を募集",
                 r"約\s*(\d+)\s*名",
                 r"若干名",
             ]
