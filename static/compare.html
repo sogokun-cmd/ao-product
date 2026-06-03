@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>比較 — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .page-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+  .page-head h1 { margin:0; color:var(--brand-navy); }
+
+  .select-hint { font-size:.85rem; color:var(--muted); margin-bottom:12px; }
+  .research-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:10px; margin-bottom:20px; }
+  .res-item {
+    background:#fff; border:1.5px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; cursor:pointer; transition:border-color .15s;
+    display:flex; gap:10px; align-items:flex-start;
+  }
+  .res-item:hover { border-color:var(--brand-blue); }
+  .res-item.selected { border-color:var(--brand-navy); background:var(--brand-light); }
+  .res-check { width:18px; height:18px; border:2px solid var(--border); border-radius:4px; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; }
+  .res-item.selected .res-check { background:var(--brand-navy); border-color:var(--brand-navy); color:#fff; font-size:.7rem; }
+  .res-info { flex:1; min-width:0; }
+  .res-uni { font-weight:700; color:var(--brand-navy); font-size:.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .res-sub { font-size:.78rem; color:var(--muted); margin-top:2px; }
+  .res-flags { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+  .flag-tag { font-size:.68rem; padding:1px 7px; border-radius:8px; font-weight:700; }
+  .flag-interview { background:var(--brand-light); color:var(--brand-blue); }
+  .flag-essay { background:var(--yellow-soft); color:var(--yellow); }
+  .flag-eng { background:var(--green-soft); color:var(--green); }
+
+  .compare-actions { display:flex; gap:10px; align-items:center; margin-bottom:20px; }
+  .selected-count { font-size:.85rem; color:var(--muted); }
+
+  /* 比較テーブル */
+  .compare-wrap { overflow-x:auto; }
+  .compare-table { border-collapse:separate; border-spacing:0; width:100%; font-size:.84rem; }
+  .compare-table th, .compare-table td { padding:11px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+  .compare-table .label-col { background:var(--bg); font-weight:700; color:var(--brand-navy); font-size:.78rem; width:130px; white-space:nowrap; border-right:1px solid var(--border); }
+  .compare-table .school-head { background:#fff; font-weight:800; color:var(--brand-navy); font-size:.88rem; border-bottom:2px solid var(--brand-blue); min-width:220px; }
+  .compare-table td { background:#fff; }
+  .compare-table tr:last-child td, .compare-table tr:last-child th { border-bottom:0; }
+  .unknown-cell { color:var(--muted); font-style:italic; }
+  .diff-hi { background:#fffbeb; }
+
+  .flag-chip { display:inline-block; padding:2px 8px; border-radius:8px; font-size:.72rem; font-weight:700; margin:1px; }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+
+<main class="app-shell">
+  <div class="page-head">
+    <h1>比較</h1>
+    <a class="btn" href="/app">← ダッシュボード</a>
+  </div>
+
+  <div id="list-section">
+    <p class="select-hint">比較したいリサーチ結果を 2〜4件 選んでください</p>
+    <div class="research-list" id="res-list">
+      <div class="muted" style="padding:20px">読み込み中…</div>
+    </div>
+    <div class="compare-actions">
+      <button class="btn btn-primary" id="btn-compare" onclick="doCompare()" disabled>比較する</button>
+      <span class="selected-count" id="sel-count">0件選択中</span>
+    </div>
+  </div>
+
+  <div id="compare-section" style="display:none">
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <button class="btn" onclick="backToList()">← 選択に戻る</button>
+      <button class="btn btn-primary" onclick="window.print()">印刷 / PDF保存</button>
+    </div>
+    <div class="compare-wrap">
+      <table class="compare-table" id="compare-table"></table>
+    </div>
+  </div>
+</main>
+
+<footer class="app-footer">AOリサーチ</footer>
+<script src="/shared/header.js"></script>
+<script>
+function esc(s) {
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _selected = new Set();
+let _items = [];
+
+(async function init() {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  loadList();
+})();
+
+async function loadList() {
+  try {
+    const r = await fetch('/api/research');
+    if (!r.ok) return;
+    const data = await r.json();
+    _items = (Array.isArray(data) ? data : []).filter(it => it.status === 'done');
+    renderList();
+  } catch(e) { console.error(e); }
+}
+
+function flagsHtml(flags) {
+  if (!flags) return '';
+  const chips = [];
+  if (flags.interview)       chips.push('<span class="flag-tag flag-interview">面接</span>');
+  if (flags.essay)           chips.push('<span class="flag-tag flag-essay">小論文</span>');
+  if (flags.presentation)    chips.push('<span class="flag-tag" style="background:var(--red-soft);color:var(--red)">プレゼン</span>');
+  if (flags.english_required)chips.push('<span class="flag-tag flag-eng">英語資格</span>');
+  if (flags.gpa_min)         chips.push(`<span class="flag-tag" style="background:#f0f0f0;color:var(--muted)">評定${flags.gpa_min}</span>`);
+  return chips.join('');
+}
+
+function renderList() {
+  const el = document.getElementById('res-list');
+  if (!_items.length) { el.innerHTML = '<div class="muted" style="padding:20px">完了済みのリサーチがありません。<a href="/app/research">リサーチを実行</a>してください。</div>'; return; }
+  el.innerHTML = _items.map(it => {
+    const sel = _selected.has(it.id);
+    const sub = [it.faculty, it.department, it.admission_method].filter(Boolean).join(' / ');
+    const flags = it.flags || {};
+    return `<div class="res-item${sel?' selected':''}" onclick="toggleSelect('${it.id}')">
+      <div class="res-check">${sel?'✓':''}</div>
+      <div class="res-info">
+        <div class="res-uni">${esc(it.university)}</div>
+        <div class="res-sub">${esc(sub)}</div>
+        <div class="res-flags">${flagsHtml(flags)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSelect(id) {
+  if (_selected.has(id)) {
+    _selected.delete(id);
+  } else if (_selected.size < 4) {
+    _selected.add(id);
+  } else {
+    alert('最大4件まで選択できます');
+    return;
+  }
+  renderList();
+  const n = _selected.size;
+  document.getElementById('sel-count').textContent = `${n}件選択中`;
+  document.getElementById('btn-compare').disabled = n < 2;
+}
+
+async function doCompare() {
+  const ids = [..._selected];
+  if (ids.length < 2) return;
+  document.getElementById('btn-compare').disabled = true;
+  document.getElementById('btn-compare').textContent = '比較中…';
+  try {
+    const r = await fetch('/api/compare', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ request_ids: ids }),
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.status); }
+    const data = await r.json();
+    renderCompare(data.schools);
+    document.getElementById('list-section').style.display = 'none';
+    document.getElementById('compare-section').style.display = 'block';
+  } catch(e) {
+    alert('比較失敗: ' + e.message);
+  } finally {
+    document.getElementById('btn-compare').disabled = false;
+    document.getElementById('btn-compare').textContent = '比較する';
+  }
+}
+
+function backToList() {
+  document.getElementById('compare-section').style.display = 'none';
+  document.getElementById('list-section').style.display = 'block';
+}
+
+const ROWS = [
+  ['出願期間',     'application_period'],
+  ['募集人数',     'quota'],
+  ['選考方法',     'selection_methods'],
+  ['評定条件',     'gpa_requirement'],
+  ['英語資格',     'english_required_label'],
+  ['専願/併願',    'application_type_label'],
+  ['倍率（直近）', 'ratio'],
+  ['不明項目数',   'unknown_count'],
+];
+
+function renderCompare(schools) {
+  const t = document.getElementById('compare-table');
+  // ヘッダー行
+  let html = '<thead><tr><th class="label-col">項目</th>';
+  schools.forEach(s => {
+    const sub = [s.faculty, s.department, s.admission_method].filter(Boolean).join(' / ');
+    html += `<th class="school-head"><div>${esc(s.university)}</div><div style="font-size:.74rem;font-weight:500;color:var(--muted);margin-top:2px">${esc(sub)}</div></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  ROWS.forEach(([label, key]) => {
+    html += `<tr><th class="label-col">${esc(label)}</th>`;
+    const vals = schools.map(s => getCellValue(s, key));
+    // 値が違う行をハイライト
+    const unique = new Set(vals.map(v => String(v)));
+    const diff = unique.size > 1;
+    vals.forEach(v => {
+      const unknown = !v || v === '不明' || v === '?';
+      html += `<td class="${diff?'diff-hi':''}">${unknown ? '<span class="unknown-cell">不明</span>' : esc(String(v))}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  // 選考方法フラグ行
+  html += '<tr><th class="label-col">フラグ</th>';
+  schools.forEach(s => {
+    const req = _items.find(it => it.id === s.request_id);
+    const flags = req?.flags || {};
+    const chips = [];
+    if (flags.interview)        chips.push('<span class="flag-chip flag-interview">面接</span>');
+    if (flags.essay)            chips.push('<span class="flag-chip flag-essay">小論文</span>');
+    if (flags.presentation)     chips.push('<span class="flag-chip" style="background:var(--red-soft);color:var(--red)">プレゼン</span>');
+    if (flags.interview_only)   chips.push('<span class="flag-chip" style="background:#e0f2fe;color:#0369a1">面接のみ</span>');
+    if (flags.english_required) chips.push('<span class="flag-chip flag-eng">英語必須</span>');
+    if (flags.gpa_min)          chips.push(`<span class="flag-chip" style="background:#f0f0f0;color:var(--muted)">評定${flags.gpa_min}以上</span>`);
+    html += `<td>${chips.join('') || '<span class="unknown-cell">—</span>'}</td>`;
+  });
+  html += '</tr>';
+
+  html += '<tr><th class="label-col">リサーチ</th>';
+  schools.forEach(s => {
+    html += `<td><a href="/app/research/${esc(s.request_id)}" style="font-size:.78rem;color:var(--brand-blue)">詳細を見る →</a></td>`;
+  });
+  html += '</tr>';
+
+  html += '</tbody>';
+  t.innerHTML = html;
+}
+
+function getCellValue(s, key) {
+  if (key === 'english_required_label') {
+    const req = _items.find(it => it.id === s.request_id);
+    return req?.flags?.english_required ? '必要' : '不要/不明';
+  }
+  if (key === 'application_type_label') {
+    const req = _items.find(it => it.id === s.request_id);
+    return req?.flags?.interview_only ? '面接のみ' : '—';
+  }
+  if (key === 'unknown_count') return s.unknown_count ?? '?';
+  if (key === 'selection_methods') {
+    const m = s.selection_methods;
+    if (Array.isArray(m)) return m.join(' / ');
+    return m || '不明';
+  }
+  return s[key] ?? '不明';
+}
+</script>
+</body>
+</html>

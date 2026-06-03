@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>チーム — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .row { display:flex; gap:8px; align-items:center; }
+  .team-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:18px; margin-bottom:12px; }
+  .member-row, .invite-row { padding:8px 10px; background:var(--bg); border-radius:var(--radius-sm); display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+<main class="app-shell">
+  <h1 style="margin:0 0 8px;color:var(--brand-navy)">チーム</h1>
+  <p class="muted">塾内の講師でデータを共有します。School プラン以上の機能。</p>
+
+  <div id="gate" style="display:none"></div>
+  <div id="content">
+    <div class="card">
+      <h2 class="card-title">+ 新しいチーム</h2>
+      <div class="row">
+        <input id="new-team" placeholder="チーム名" style="flex:1;padding:9px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <button class="btn btn-primary" onclick="createTeam()">作成</button>
+      </div>
+    </div>
+    <div id="teams" style="margin-top:14px">読み込み中…</div>
+  </div>
+</main>
+<footer class="app-footer">AOリサーチ</footer>
+<script src="/shared/header.js"></script>
+<script>
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+(async function () {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  if (!me.plan?.features?.team) {
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('gate').style.display = 'block';
+    document.getElementById('gate').innerHTML = `<div class="empty">チーム機能は <strong>School</strong> プランで利用できます。<br><a href="/pricing">プラン一覧</a></div>`;
+    return;
+  }
+  await renderTeams();
+})();
+
+async function createTeam() {
+  const name = document.getElementById('new-team').value.trim();
+  if (!name) return;
+  const r = await fetch('/api/teams', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+  if (!r.ok) { alert('作成失敗'); return; }
+  document.getElementById('new-team').value = '';
+  renderTeams();
+}
+
+async function renderTeams() {
+  const box = document.getElementById('teams');
+  try {
+    const teams = await (await fetch('/api/teams')).json();
+    if (!teams.length) { box.innerHTML = '<div class="empty">まだチームがありません</div>'; return; }
+    box.innerHTML = teams.map(t => `
+      <div class="team-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${esc(t.name)}</strong> <span class="plan-badge">${esc(t.role)}</span>
+            <div class="muted" style="font-size:.78rem">作成 ${(t.created_at||'').slice(0,10)}</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <h3 style="font-size:.92rem;color:var(--brand-navy);margin:0 0 6px">メンバー</h3>
+          <div id="members-${t.id}" class="muted" style="font-size:.85rem">読み込み中…</div>
+        </div>
+        <div style="margin-top:14px">
+          <h3 style="font-size:.92rem;color:var(--brand-navy);margin:0 0 6px">招待</h3>
+          <div class="row">
+            <input id="invite-email-${t.id}" placeholder="招待先メールアドレス" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <button class="btn" onclick="invite(${t.id})">招待リンク発行</button>
+          </div>
+          <div id="invites-${t.id}" style="margin-top:8px"></div>
+        </div>
+      </div>
+    `).join('');
+    teams.forEach(t => { loadMembers(t.id); loadInvites(t.id); });
+  } catch (e) {
+    box.innerHTML = `<div class="empty">読み込み失敗: ${esc(e.message)}</div>`;
+  }
+}
+
+async function loadMembers(tid) {
+  try {
+    const items = await (await fetch(`/api/teams/${tid}/members`)).json();
+    document.getElementById('members-' + tid).innerHTML = items.map(m =>
+      `<div class="member-row"><span><strong>${esc(m.name)}</strong> <span class="muted" style="font-size:.78rem">${esc(m.email)}</span></span>
+       <span class="plan-badge">${esc(m.role)}</span></div>`).join('');
+  } catch (_) {}
+}
+
+async function loadInvites(tid) {
+  try {
+    const items = await (await fetch(`/api/teams/${tid}/invites`)).json();
+    if (!items.length) { document.getElementById('invites-' + tid).innerHTML = ''; return; }
+    document.getElementById('invites-' + tid).innerHTML = items.map(i => {
+      const url = `${location.origin}/invite/${i.token}`;
+      const accepted = i.accepted_at ? '✓' : '⏳';
+      return `<div class="invite-row">
+        <span style="font-size:.82rem">${accepted} ${esc(i.email)} <a href="${esc(url)}" target="_blank" style="font-size:.78rem">${esc(url)}</a></span>
+      </div>`;
+    }).join('');
+  } catch (_) {}
+}
+
+async function invite(tid) {
+  const email = document.getElementById('invite-email-' + tid).value.trim();
+  if (!email) return;
+  const r = await fetch(`/api/teams/${tid}/invites`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email})});
+  if (!r.ok) { alert('招待失敗'); return; }
+  document.getElementById('invite-email-' + tid).value = '';
+  loadInvites(tid);
+}
+</script>
+</body>
+</html>

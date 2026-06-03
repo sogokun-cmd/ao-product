@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>過去問分析 — AOリサーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  @media (max-width: 760px) { .form-grid { grid-template-columns: 1fr; } }
+  .item {
+    background:#fff; padding:16px; border:1px solid var(--border); border-radius:var(--radius);
+    margin-bottom:10px;
+  }
+  .pill { display:inline-block; padding:2px 8px; background:var(--brand-light); color:var(--brand-navy);
+          font-size:.7rem; border-radius:8px; font-weight:600; margin-right:4px; }
+  .analysis-section { background:var(--bg); padding:14px; border-radius:var(--radius-sm); margin-top:10px; }
+  .analysis-section h4 { margin:0 0 8px; color:var(--brand-navy); font-size:.92rem; }
+  .analysis-section ul { margin:0; padding-left:20px; color:var(--ink-soft); font-size:.86rem; }
+  .practice-q {
+    border-left:3px solid var(--brand-blue); padding:10px 14px; background:var(--brand-light);
+    margin-bottom:8px; border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  }
+  .markdown { white-space: pre-wrap; line-height:1.7; color:var(--ink-soft); font-size:.88rem; }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+<main class="app-shell">
+  <h1 style="margin:0 0 8px;color:var(--brand-navy)">過去問分析</h1>
+  <p class="muted">過去問のPDFまたはテキストをアップロードして、出題傾向・類題・指導メモを生成します。Tutor プラン以上の機能。</p>
+
+  <div id="gate" style="display:none"></div>
+  <div id="content">
+    <div class="card">
+      <h2 class="card-title">+ 過去問アップロード</h2>
+      <form id="up-form" enctype="multipart/form-data">
+        <div class="form-grid">
+          <div class="field">
+            <label>大学名 *</label>
+            <input name="university" required maxlength="100">
+          </div>
+          <div class="field">
+            <label>学部</label>
+            <input name="faculty" maxlength="100">
+          </div>
+        </div>
+        <div class="field">
+          <label>PDFアップロード または テキスト貼り付け</label>
+          <input type="file" name="file" accept=".pdf,.txt">
+          <textarea name="text" rows="4" placeholder="または直接テキストを貼り付け"></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">アップロードして登録</button>
+      </form>
+    </div>
+
+    <h2 style="color:var(--brand-navy);margin-top:24px">分析一覧</h2>
+    <div id="list">読み込み中…</div>
+  </div>
+</main>
+<footer class="app-footer">AOリサーチ</footer>
+<script src="/shared/header.js"></script>
+<script>
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+(async function () {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  if (!me.plan?.features?.analysis) {
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('gate').style.display = 'block';
+    document.getElementById('gate').innerHTML = `<div class="empty">過去問分析は <strong>Tutor</strong> プラン以上で利用できます。<br><a href="/pricing">プラン一覧</a></div>`;
+    return;
+  }
+  await renderList();
+})();
+
+document.getElementById('up-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const r = await fetch('/api/analysis', { method:'POST', body: fd });
+  if (!r.ok) { const err = await r.json(); alert('失敗: ' + err.detail); return; }
+  e.target.reset();
+  renderList();
+});
+
+async function renderList() {
+  const list = document.getElementById('list');
+  try {
+    const items = await (await fetch('/api/analysis')).json();
+    if (!items.length) { list.innerHTML = '<div class="empty">まだ分析がありません</div>'; return; }
+    list.innerHTML = items.map(it => `
+      <div class="item" id="ana-${it.id}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${esc(it.university)} ${esc(it.faculty || '')}</strong>
+            <span class="pill">${esc(it.source_kind)}</span>
+            ${it.has_analysis ? '<span class="pill">分析済</span>' : ''}
+            ${it.has_practice ? '<span class="pill">類題あり</span>' : ''}
+            ${it.has_notes ? '<span class="pill">メモあり</span>' : ''}
+            <div class="muted" style="font-size:.78rem">${(it.created_at||'').slice(0,16).replace('T',' ')}${it.source_filename ? ' · ' + esc(it.source_filename) : ''}</div>
+          </div>
+          <div class="row">
+            <button class="btn" onclick="openAnalysis(${it.id})">開く</button>
+            <button class="btn btn-danger" onclick="removeAnalysis(${it.id})">削除</button>
+          </div>
+        </div>
+        <div id="detail-${it.id}" style="margin-top:12px;display:none"></div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="empty">読み込み失敗: ${esc(e.message)}</div>`;
+  }
+}
+
+async function openAnalysis(id) {
+  const box = document.getElementById('detail-' + id);
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '読み込み中…';
+  try {
+    const data = await (await fetch(`/api/analysis/${id}`)).json();
+    let html = '';
+    if (!data.analysis_json) {
+      html += `<button class="btn btn-primary" onclick="runAnalysis(${id})">出題傾向を分析する</button>`;
+    } else {
+      html += renderAnalysis(data.analysis_json);
+      html += `<div style="margin-top:10px;display:flex;gap:8px">`;
+      if (!data.practice_json) html += `<button class="btn" onclick="runPractice(${id})">類題作成</button>`;
+      if (!data.notes_text)    html += `<button class="btn" onclick="runNotes(${id})">指導メモ生成</button>`;
+      html += `</div>`;
+      if (data.practice_json) html += renderPractice(data.practice_json);
+      if (data.notes_text)    html += `<div class="analysis-section"><h4>指導メモ</h4><div class="markdown">${esc(data.notes_text)}</div></div>`;
+    }
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = `読み込み失敗: ${esc(e.message)}`;
+  }
+}
+
+function renderAnalysis(a) {
+  if (a._raw) return `<div class="analysis-section"><pre style="white-space:pre-wrap">${esc(a._raw)}</pre></div>`;
+  function listSect(title, arr) {
+    if (!arr || !arr.length) return '';
+    return `<div class="analysis-section"><h4>${esc(title)}</h4><ul>${arr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  }
+  return listSect('出題形式', a.exam_format)
+       + listSect('頻出テーマ', a.typical_themes)
+       + listSect('問われやすい力', a.skills_required)
+       + listSect('観察された傾向', a.patterns_observed)
+       + listSect('注意点（このテキストだけでは断定できない事項）', a.confidence_caveats);
+}
+
+function renderPractice(p) {
+  const qs = (p && p.practice_questions) || [];
+  if (!qs.length) return `<div class="analysis-section"><h4>類題</h4><pre>${esc(JSON.stringify(p))}</pre></div>`;
+  return `<div class="analysis-section"><h4>類題</h4>${
+    qs.map(q => `<div class="practice-q">
+      <strong>${esc(q.title || '無題')}</strong>
+      <div style="margin-top:4px">${esc(q.prompt || '')}</div>
+      ${q.estimated_minutes ? `<div class="muted" style="font-size:.78rem">想定 ${q.estimated_minutes} 分</div>` : ''}
+      ${q.tips_for_teaching ? `<div class="muted" style="font-size:.78rem">指導ヒント: ${esc(q.tips_for_teaching)}</div>` : ''}
+    </div>`).join('')
+  }</div>`;
+}
+
+async function runAnalysis(id) {
+  const box = document.getElementById('detail-' + id);
+  box.innerHTML = '分析中…（10〜30秒）';
+  try {
+    const r = await fetch(`/api/analysis/${id}/run`, {method:'POST'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    openAnalysis(id); openAnalysis(id);
+    renderList();
+  } catch (e) { alert('失敗: ' + e.message); }
+}
+async function runPractice(id) {
+  try {
+    const r = await fetch(`/api/analysis/${id}/practice`, {method:'POST'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    openAnalysis(id); openAnalysis(id);
+  } catch (e) { alert('失敗: ' + e.message); }
+}
+async function runNotes(id) {
+  try {
+    const r = await fetch(`/api/analysis/${id}/notes`, {method:'POST'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    openAnalysis(id); openAnalysis(id);
+  } catch (e) { alert('失敗: ' + e.message); }
+}
+async function removeAnalysis(id) {
+  if (!confirm('削除しますか？')) return;
+  const r = await fetch(`/api/analysis/${id}`, {method:'DELETE'});
+  if (!r.ok) { alert('失敗'); return; }
+  renderList();
+}
+</script>
+</body>
+</html>

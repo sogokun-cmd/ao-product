@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="page-title">総合型選抜 情報 | AOリサーチ</title>
+<meta name="description" id="page-desc" content="大学の総合型選抜（AO入試）の出願期間・倍率・選考方法を一次情報ベースで整理。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="AOリサーチ">
+<meta property="og:title" id="og-title" content="総合型選抜 情報 | AOリサーチ">
+<meta property="og:description" id="og-desc" content="大学の総合型選抜（AO入試）の出願期間・倍率・選考方法を一次情報ベースで整理。">
+<meta property="og:image" content="/static/ogp.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--ink); }
+  .page-wrap { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+  .breadcrumb { font-size: .78rem; color: var(--muted); margin-bottom: 20px; }
+  .breadcrumb a { color: var(--brand-blue); text-decoration: none; }
+  .head-block { margin-bottom: 28px; }
+  .univ-name { font-size: 1.5rem; font-weight: 800; color: var(--brand-navy); margin: 0 0 4px; }
+  .faculty-name { font-size: 1rem; color: var(--ink-soft); margin: 0 0 8px; }
+  .method-tag { display: inline-block; background: var(--brand-light); color: var(--brand-blue); font-size: .78rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+  .info-label { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .info-value { font-size: 1rem; font-weight: 600; color: var(--ink); }
+  .info-value.unknown { color: var(--muted); font-weight: 400; }
+  .ratio-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .ratio-item { text-align: center; }
+  .ratio-year { font-size: .72rem; color: var(--muted); }
+  .ratio-val { font-size: 1rem; font-weight: 700; color: var(--brand-navy); }
+  .methods-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .method-chip { background: var(--brand-light); color: var(--brand-blue); font-size: .82rem; padding: 4px 12px; border-radius: 20px; }
+  .lock-section { background: #fff; border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg); padding: 28px; text-align: center; margin-bottom: 24px; }
+  .lock-icon { font-size: 2rem; margin-bottom: 10px; }
+  .lock-title { font-size: 1.05rem; font-weight: 700; color: var(--brand-navy); margin-bottom: 6px; }
+  .lock-desc { font-size: .88rem; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+  .lock-fields { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 18px; }
+  .lock-field { background: #f3f4f6; color: var(--muted); font-size: .78rem; padding: 3px 10px; border-radius: 20px; }
+  .btn-cta { display: inline-block; background: var(--brand-blue); color: #fff; font-weight: 700; font-size: 1rem; padding: 13px 32px; border-radius: var(--radius-lg); text-decoration: none; transition: background .15s; }
+  .btn-cta:hover { background: var(--brand-navy); }
+  .btn-secondary { display: inline-block; margin-left: 10px; color: var(--brand-blue); font-size: .9rem; text-decoration: none; }
+  .share-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 28px; flex-wrap: wrap; }
+  .share-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius-lg); font-size: .82rem; font-weight: 600; text-decoration: none; border: 1.5px solid var(--border); background: #fff; color: var(--ink); cursor: pointer; transition: background .12s; }
+  .share-btn:hover { background: var(--bg); }
+  .share-btn.twitter { border-color: #1d9bf0; color: #1d9bf0; }
+  .share-btn.threads { border-color: #000; color: #000; }
+  .updated { font-size: .75rem; color: var(--muted); margin-top: 20px; }
+  .site-link { text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .site-link a { color: var(--brand-blue); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <div class="breadcrumb"><a href="/">AOリサーチ</a> &rsaquo; <span id="bc-univ">大学</span> &rsaquo; 総合型選抜</div>
+
+  <div class="head-block">
+    <h1 class="univ-name" id="h-univ">読み込み中…</h1>
+    <p class="faculty-name" id="h-faculty"></p>
+    <span class="method-tag" id="h-method" style="display:none"></span>
+  </div>
+
+  <div class="share-bar">
+    <button class="share-btn twitter" onclick="shareTwitter()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.26 5.626zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      Xでシェア
+    </button>
+    <button class="share-btn threads" onclick="shareThreads()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.5 12.068c0-3.516.85-6.37 2.495-8.424C5.845 1.34 8.6.16 12.18.136h.013c2.837.018 5.15.784 6.875 2.274 1.568 1.358 2.558 3.258 2.944 5.648l-2.777.443c-.3-1.836-1.017-3.266-2.133-4.252-1.231-1.066-2.938-1.614-5.074-1.628-2.735.018-4.89.866-6.406 2.518C4.125 6.74 3.413 8.967 3.413 12c0 3.033.71 5.26 2.11 6.862 1.516 1.65 3.672 2.497 6.407 2.514 2.04-.013 3.758-.503 5.106-1.456 1.578-1.103 2.407-2.783 2.407-4.866 0-1.098-.226-2.04-.673-2.798-.452-.765-1.11-1.341-1.955-1.713-.24 1.683-.73 3.033-1.46 4.018-.952 1.278-2.27 1.976-3.816 2.019-1.249.033-2.393-.348-3.218-1.072-.896-.784-1.368-1.898-1.337-3.133.063-2.505 2.004-4.125 5.028-4.29.783-.042 1.548-.048 2.29-.016-.086-.645-.266-1.163-.538-1.542-.388-.543-1.002-.823-1.822-.833h-.036c-.608 0-1.558.166-2.134 1.16l-2.43-1.488C9.42 4.9 10.913 4.136 12.77 4.136h.054c2.93.038 4.673 1.818 4.877 4.893.143.073.283.148.42.226 1.247.7 2.222 1.69 2.916 2.944.704 1.271 1.063 2.766 1.063 4.445 0 3.038-1.19 5.485-3.347 6.89C17.134 23.469 14.84 24 12.186 24z"/></svg>
+      Threadsでシェア
+    </button>
+    <button class="share-btn" onclick="copyUrl()">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+      <span id="copy-label">URLをコピー</span>
+    </button>
+  </div>
+
+  <div class="info-grid" id="info-grid"></div>
+
+  <div class="lock-section">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title">詳細情報は無料登録で閲覧できます</div>
+    <div class="lock-desc">出願資格・評定・英語資格・提出書類など<br>一次情報ベースの詳細データを確認できます。</div>
+    <div class="lock-fields" id="lock-fields"></div>
+    <a href="/register" class="btn-cta">無料で登録する</a>
+    <a href="/login" class="btn-secondary">ログイン</a>
+  </div>
+
+  <p class="updated" id="updated-at"></p>
+
+  <div class="site-link">
+    <p style="color:var(--muted);font-size:.88rem;margin-bottom:8px">AOリサーチは一次情報（大学公式HP・公式PDF）ベースの総合型選抜リサーチツールです。</p>
+    <a href="/">トップページへ</a> &nbsp;·&nbsp; <a href="/pricing">料金プラン</a>
+  </div>
+</div>
+
+<script>
+const rid = location.pathname.split('/').pop();
+const LOCK_LABELS = {
+  eligibility:          '出願資格',
+  gpa_requirement:      '評定基準',
+  english_requirement:  '英語資格',
+  selection_detail:     '選考詳細',
+  documents_required:   '提出書類',
+};
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function load() {
+  const res = await fetch(`/api/share/${rid}`);
+  if (!res.ok) { document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#6b7280">このページは見つかりませんでした。</div>'; return; }
+  const d = await res.json();
+
+  const label = [d.university, d.faculty, d.department].filter(Boolean).join(' ');
+  const titleText = `${label} 総合型選抜 | AOリサーチ`;
+  const descText = `${label}の総合型選抜。出願期間: ${d.application_period}、募集人数: ${d.quota}。AOリサーチで詳細を確認。`;
+
+  document.getElementById('page-title').textContent = titleText;
+  document.getElementById('page-desc').setAttribute('content', descText);
+  document.getElementById('og-title').setAttribute('content', titleText);
+  document.getElementById('og-desc').setAttribute('content', descText);
+
+  document.getElementById('bc-univ').textContent = d.university;
+  document.getElementById('h-univ').textContent = d.university;
+  document.getElementById('h-faculty').textContent = [d.faculty, d.department].filter(Boolean).join(' ');
+  if (d.admission_method) {
+    const m = document.getElementById('h-method');
+    m.textContent = d.admission_method;
+    m.style.display = '';
+  }
+
+  // 公開情報カード
+  const grid = document.getElementById('info-grid');
+  const card = (label, val) => `
+    <div class="info-card">
+      <div class="info-label">${label}</div>
+      <div class="info-value ${val === '不明' ? 'unknown' : ''}">${esc(val)}</div>
+    </div>`;
+
+  let html = card('出願期間', d.application_period);
+  html += card('募集人数', d.quota);
+
+  if (Object.keys(d.ratio_history || {}).length) {
+    const ratioHtml = Object.entries(d.ratio_history)
+      .sort((a,b) => b[0] - a[0])
+      .map(([y, v]) => `<div class="ratio-item"><div class="ratio-year">${y}年度</div><div class="ratio-val">${esc(v)}</div></div>`)
+      .join('');
+    html += `<div class="info-card"><div class="info-label">倍率推移</div><div class="ratio-row">${ratioHtml}</div></div>`;
+  }
+
+  if (d.selection_methods?.length) {
+    const chips = d.selection_methods.map(m => `<span class="method-chip">${esc(m)}</span>`).join('');
+    html += `<div class="info-card" style="grid-column:1/-1"><div class="info-label">選考方法</div><div class="methods-list">${chips}</div></div>`;
+  }
+
+  grid.innerHTML = html;
+
+  // ロックフィールド一覧
+  if (d.locked?.length) {
+    document.getElementById('lock-fields').innerHTML = d.locked
+      .map(k => `<span class="lock-field">${LOCK_LABELS[k] || k}</span>`)
+      .join('');
+  }
+
+  if (d.updated_at) {
+    document.getElementById('updated-at').textContent = `最終更新: ${d.updated_at.replace('T',' ').slice(0,16)}`;
+  }
+}
+
+function _shareText() {
+  const univ = document.getElementById('h-univ').textContent;
+  const faculty = document.getElementById('h-faculty').textContent;
+  return `${[univ, faculty].filter(Boolean).join(' ')} の総合型選抜情報をAOリサーチで調べました。`;
+}
+
+function shareTwitter() {
+  const text = _shareText();
+  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text + '\n')}&url=${encodeURIComponent(location.href)}`, '_blank');
+}
+
+function shareThreads() {
+  const text = _shareText();
+  window.open(`https://www.threads.net/intent/post?text=${encodeURIComponent(text + '\n' + location.href)}`, '_blank');
+}
+
+function copyUrl() {
+  navigator.clipboard.writeText(location.href).then(() => {
+    const el = document.getElementById('copy-label');
+    el.textContent = 'コピーしました！';
+    setTimeout(() => { el.textContent = 'URLをコピー'; }, 2000);
+  });
+}
+
+load();
+</script>
+</body>
+</html>

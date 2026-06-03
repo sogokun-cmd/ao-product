@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>料金プラン — AOリサーチ</title>
+<meta name="description" content="AOリサーチの料金プラン。無料3回からスタート。月額プランとクレジットパック（都度払い）を選択可能。">
+<link rel="canonical" href="https://ao.helphero.jp/pricing">
+<meta property="og:type"        content="website">
+<meta property="og:url"         content="https://ao.helphero.jp/pricing">
+<meta property="og:title"       content="料金プラン — AOリサーチ">
+<meta property="og:description" content="AOリサーチの料金プラン。無料3回からスタート。月額プランとクレジットパック（都度払い）を選択可能。">
+<meta property="og:image"       content="https://ao.helphero.jp/static/ogp.png">
+<meta property="og:locale"      content="ja_JP">
+<meta property="og:site_name"   content="AOリサーチ">
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="料金プラン — AOリサーチ">
+<meta name="twitter:description" content="AOリサーチの料金プラン。無料3回からスタート。月額プランとクレジットパック（都度払い）を選択可能。">
+<meta name="twitter:image"       content="https://ao.helphero.jp/static/ogp.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;600;700;800&family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/tokens.css">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-E755XR1JMF"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E755XR1JMF');</script>
+<style>
+  .pricing-hero {
+    padding: 64px 0 40px; text-align: center;
+    background: linear-gradient(180deg, var(--brand-light) 0%, #fff 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .pricing-hero h1 {
+    font-family: var(--font-serif);
+    font-size: clamp(1.6rem, 3.5vw, 2.2rem); font-weight: 700;
+    color: var(--brand-navy); margin: 0 0 12px;
+  }
+  .pricing-hero p { color: var(--muted); max-width: 520px; margin: 0 auto; line-height: 1.75; }
+
+  .plan-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px; padding: 36px 0 48px;
+  }
+  .plan {
+    background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-lg);
+    padding: 28px; display: flex; flex-direction: column;
+    position: relative; transition: box-shadow .2s, transform .2s;
+  }
+  .plan:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+  .plan.featured {
+    border-color: var(--brand-blue); border-width: 2px;
+    background: linear-gradient(180deg, var(--brand-light) 0%, #fff 35%);
+    box-shadow: 0 4px 24px rgba(99,102,241,.18);
+  }
+  .plan.featured::before {
+    content: 'おすすめ'; position: absolute; top: -13px; left: 18px;
+    background: var(--gradient-brand); color: #fff; font-size: .68rem; font-weight: 700;
+    padding: 4px 14px; border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(99,102,241,.3);
+  }
+  .plan-name {
+    font-size: .8rem; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px;
+  }
+  .plan-price {
+    font-family: var(--font-num); font-size: 2.3rem; font-weight: 800;
+    color: var(--brand-navy); margin: 6px 0 2px;
+  }
+  .plan-price small { font-size: .9rem; color: var(--muted); font-weight: 500; }
+  .plan-quota { color: var(--muted); font-size: .83rem; margin-bottom: 20px; }
+  .plan-features { list-style: none; padding: 0; margin: 0 0 24px; flex: 1; }
+  .plan-features li {
+    padding: 6px 0; font-size: .85rem; color: var(--ink-soft);
+    display: flex; align-items: center; gap: 9px;
+    border-bottom: 1px solid var(--border);
+  }
+  .plan-features li:last-child { border-bottom: 0; }
+  .plan-features li::before {
+    content: ''; width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+    background-color: var(--green-soft);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+    background-size: 11px; background-position: center; background-repeat: no-repeat;
+  }
+  .plan-features li.no { color: var(--muted); }
+  .plan-features li.no::before {
+    background-color: #F3F4F6;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E");
+  }
+  .plan .btn { width: 100%; justify-content: center; }
+
+  .note-box {
+    background: var(--brand-light); border: 1px solid var(--border);
+    border-left: 4px solid var(--brand-blue);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px; color: var(--ink-soft); font-size: .88rem;
+    line-height: 1.8; margin-bottom: 14px;
+  }
+  .note-box strong { color: var(--brand-navy); }
+
+  .btob-note {
+    text-align: center; padding: 18px 0 48px;
+    font-size: .82rem; color: var(--muted);
+    border-top: 1px solid var(--border); margin-top: 12px;
+  }
+  .btob-note a { color: var(--muted); text-decoration: underline; }
+
+  .pack-section { margin: 36px 0; }
+  .pack-section h2 {
+    color: var(--brand-navy); font-family: var(--font-serif);
+    font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;
+  }
+  .pack-section p { font-size:.85rem; color:var(--muted); margin-bottom:18px; }
+  .pack-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
+  .pack-card {
+    background:#fff; border:1.5px solid var(--border); border-radius:var(--radius-lg);
+    padding:22px; text-align:center; position:relative;
+    transition: box-shadow .2s, transform .2s;
+  }
+  .pack-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+  .pack-card.popular {
+    border-color: var(--brand-blue); border-width: 2px;
+    background: linear-gradient(180deg, var(--brand-light) 0%, #fff 40%);
+  }
+  .pack-card.popular::before {
+    content:'人気'; position:absolute; top:-13px; left:50%; transform:translateX(-50%);
+    background: var(--gradient-brand); color:#fff; font-size:.66rem; font-weight:700;
+    padding:4px 14px; border-radius:20px;
+    box-shadow: 0 2px 8px rgba(99,102,241,.3);
+  }
+  .pack-credits { font-size:2.1rem; font-weight:800; color:var(--brand-navy); }
+  .pack-credits small { font-size:.85rem; color:var(--muted); font-weight:500; }
+  .pack-price { font-size:1.15rem; font-weight:800; color:var(--ink-soft); margin:6px 0 4px; }
+  .pack-per { font-size:.76rem; color:var(--muted); margin-bottom:18px; }
+  .pack-card .btn { width:100%; justify-content:center; }
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+
+<section class="pricing-hero">
+  <div class="container">
+    <h1>料金プラン</h1>
+    <p>どのプランでも情報収集の質は同じ。違いは使える回数・保存・機能。まず3回、無料でお試しください。</p>
+  </div>
+</section>
+
+<div class="container">
+  <div class="note-box">
+    <strong>大事な原則：</strong>
+    安いプランでも情報収集の質は落としません。Free でもプレミアムでも、同じ高品質な一次情報リサーチを利用できます。
+    プランの差は <strong>月間リサーチ回数 / 結果の保存 / 診断機能</strong> のみです。
+  </div>
+
+  <div class="plan-grid" id="plan-grid">読み込み中…</div>
+
+  <div class="pack-section">
+    <h2>クレジットパック — クレカ不要・都度払い</h2>
+    <p>コンビニ払い・PayPay・銀行振込など現金系決済にも対応。期限なし・月額なしで好きな時に使えます。</p>
+    <div class="pack-grid" id="pack-grid">読み込み中…</div>
+    <p style="font-size:.76rem;color:var(--muted);margin-top:10px">
+      ※ クレジットはリサーチ1回 = 1クレジット消費。月額プランと併用可能（月次枠を使い切った後にクレジットが使われます）。
+    </p>
+  </div>
+
+  <div class="btob-note">
+    塾・予備校・学校関係者向けのプランについては <a href="mailto:info@helphero.jp">お問い合わせください</a>
+  </div>
+</div>
+
+<footer class="app-footer">AOリサーチ</footer>
+
+<script src="/shared/header.js"></script>
+<script>
+renderHeader(document.getElementById('app-header'));
+
+const BTOC_PLANS = ['free', 'standard', 'premium'];
+
+const FEATURES = [
+  { key: 'research',   label: 'リサーチ実行' },
+  { key: 'save',       label: '結果の保存・管理' },
+  { key: 'diagnosis',  label: '志望校マッチ診断' },
+  { key: 'compare',    label: '複数校の比較' },
+];
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+(async function () {
+  const plans = await (await fetch('/api/plans')).json();
+  let me = null;
+  try { const r = await fetch('/api/me'); if (r.ok) me = await r.json(); } catch (_) {}
+  const myPlan = me?.plan?.plan_code;
+
+  // クレジットパックグリッド
+  try {
+    const cr = await fetch('/api/credits');
+    if (cr.ok) {
+      const cd = await cr.json();
+      const packGrid = document.getElementById('pack-grid');
+      const packDefs = [
+        { code:'pack_10', credits:10, price:1980, popular:false },
+        { code:'pack_20', credits:20, price:3480, popular:true  },
+        { code:'pack_50', credits:50, price:7980, popular:false },
+      ];
+      packGrid.innerHTML = packDefs.map(p => {
+        const per = Math.round(p.price / p.credits);
+        const loginBtn = me
+          ? `<button class="btn btn-primary" onclick="buyPack('${p.code}')">購入する</button>`
+          : `<a class="btn btn-primary" href="/register">無料登録して購入</a>`;
+        return `<div class="pack-card${p.popular?' popular':''}">
+          <div class="pack-credits">${p.credits}<small> 回</small></div>
+          <div class="pack-price">¥${p.price.toLocaleString()}</div>
+          <div class="pack-per">1回あたり ¥${per}</div>
+          ${loginBtn}
+        </div>`;
+      }).join('');
+    }
+  } catch (_) {}
+
+  const btocPlans = plans.filter(p => BTOC_PLANS.includes(p.code));
+  const featured = 'premium';
+  const grid = document.getElementById('plan-grid');
+
+  grid.innerHTML = btocPlans.map(p => {
+    const features = FEATURES.map(f => {
+      const v = p.features?.[f.key];
+      const has = !!v;
+      const note = (f.key === 'compare' && v === 'light') ? '（軽量版）' : '';
+      return `<li class="${has ? '' : 'no'}">${esc(f.label)}${esc(note)}</li>`;
+    }).join('');
+
+    const isMe = myPlan === p.code;
+    let cta;
+    if (isMe) {
+      cta = `<button class="btn" disabled>現在のプラン</button>`;
+    } else if (me) {
+      cta = p.code === 'free'
+        ? `<button class="btn" onclick="changePlan('free')">Freeに変更</button>`
+        : `<button class="btn btn-primary" onclick="changePlan('${esc(p.code)}')">このプランに切替</button>`;
+    } else {
+      cta = `<a class="btn ${p.code === featured ? 'btn-primary' : ''}" href="/register">${p.code === 'free' ? '無料で始める' : '始める'}</a>`;
+    }
+
+    const priceDisplay = p.price_monthly === 0 ? '¥0' : '¥' + p.price_monthly.toLocaleString();
+    const quotaLabel = p.code === 'free' ? `累計 ${p.monthly_quota} 回まで` : `月 ${p.monthly_quota} 回 リサーチ`;
+
+    return `<div class="plan ${p.code === featured ? 'featured' : ''}">
+      <div class="plan-name">${esc(p.name)}</div>
+      <div class="plan-price">${priceDisplay}<small> / 月</small></div>
+      <div class="plan-quota">${quotaLabel}</div>
+      <ul class="plan-features">${features}</ul>
+      ${cta}
+    </div>`;
+  }).join('');
+})();
+
+async function buyPack(code) {
+  try {
+    const res = await fetch('/api/checkout/pack', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ pack_code: code }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.status); }
+    window.location.href = (await res.json()).checkout_url;
+  } catch (e) { alert('エラー: ' + e.message); }
+}
+
+async function changePlan(code) {
+  if (code === 'free') {
+    try {
+      const res = await fetch('/api/billing/portal', { method: 'POST' });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.status); }
+      const data = await res.json();
+      window.location.href = data.portal_url;
+    } catch (e) { alert('エラー: ' + e.message); }
+    return;
+  }
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan_code: code }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.status); }
+    const data = await res.json();
+    window.location.href = data.checkout_url;
+  } catch (e) { alert('エラー: ' + e.message); }
+}
+</script>
+</body>
+</html>
