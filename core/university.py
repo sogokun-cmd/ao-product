@@ -329,6 +329,69 @@ def _compute_flags(annotated_data: dict) -> dict:
     return flags
 
 
+# ── 不明フィールドの後処理補完 ────────────────────────────────────────────────
+
+_UNKNOWN_VALS = ("不明", "情報なし", "要確認", "公式記載なし", "n/a", "—", "-", "")
+
+def _is_unknown_str(v) -> bool:
+    if v is None:
+        return True
+    if isinstance(v, str):
+        s = v.strip()
+        return s == "" or any(t in s for t in _UNKNOWN_VALS)
+    return False
+
+
+def _backfill_unknown_fields(university_data: dict) -> None:
+    """LLMが他フィールドに書いた情報を不明フィールドに転記するポスト処理。"""
+    unis = (university_data.get("step_c") or {}).get("universities") or university_data.get("universities") or []
+    for u in unis:
+        if not isinstance(u, dict):
+            continue
+
+        # ── quota: 不明のとき他フィールドのテキストから人数を抽出 ──────────
+        if _is_unknown_str(u.get("quota")):
+            # 探索対象テキストフィールド
+            search_texts = [
+                u.get("features") or "",
+                u.get("difficulty_facts") or "",
+                u.get("selection_phase_1") or "",
+                u.get("selection_phase_2") or "",
+                u.get("eligibility") or "",
+                str(u.get("specific_materials") or ""),
+            ]
+            combined = " ".join(str(t) for t in search_texts)
+            # 「合計N名」「計N名」「N名程度」「定員N名」「募集人員N名」などを探す
+            patterns = [
+                r"合計\s*(\d+)\s*名",
+                r"計\s*(\d+)\s*名",
+                r"募集人員\s*[：:]\s*(\d+)\s*名",
+                r"募集人員\s*(\d+)\s*名",
+                r"定員\s*(\d+)\s*名",
+                r"(\d+)\s*名程度",
+                r"約\s*(\d+)\s*名",
+                r"若干名",
+            ]
+            for pat in patterns:
+                m = re.search(pat, combined)
+                if m:
+                    if pat == r"若干名":
+                        u["quota"] = "若干名"
+                    else:
+                        u["quota"] = f"{m.group(1)}名（他フィールドから補完）"
+                    break
+
+        # ── admission_policy: 不明のとき features から補完 ────────────────
+        ap = u.get("admission_policy")
+        if _is_unknown_str(ap) or (isinstance(ap, dict) and _is_unknown_str(ap.get("summary"))):
+            features = u.get("features") or ""
+            if isinstance(features, str) and len(features) > 30:
+                if isinstance(ap, dict):
+                    u["admission_policy"]["summary"] = features[:800]
+                else:
+                    u["admission_policy"] = {"summary": features[:800], "keywords": []}
+
+
 # ── 結果保存（provenance + flags + summary + unknown） ─────────────────────
 
 def _save_result(request_id: str, university_data: dict, news_data: dict, summary_input: dict) -> None:
@@ -348,6 +411,7 @@ def _save_result(request_id: str, university_data: dict, news_data: dict, summar
             if k and k.get("fields"):
                 knowledge_merged_count += kn.fill_gaps_from_knowledge(u, k["fields"])
 
+    _backfill_unknown_fields(university_data)
     annotated_ud = annotate_facts(university_data)
     flags        = _compute_flags(annotated_ud)
     src_summary  = summarize_sources(annotated_ud)
