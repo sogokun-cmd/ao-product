@@ -57,16 +57,17 @@ class AnthropicProvider(LLMProvider):
     def complete(self, system, user, model, max_tokens=2000, temperature=0.2, use_cache: bool = True) -> LLMResponse:
         import anthropic
         client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-        # プロンプトキャッシュ: system を blocks 形式にして cache_control を付与
-        # 条件: system が 1024 トークン以上（概ね 2000 文字以上）である必要がある
-        if use_cache and isinstance(system, str) and len(system) >= 2000:
-            system_blocks = [{
-                "type": "text",
-                "text": system,
-                "cache_control": {"type": "ephemeral"},
-            }]
-        else:
+        # system は常に list[block] 形式に統一（文字列混在による BadRequestError 対策）
+        # キャッシュ対象: 2000文字以上のシステムプロンプト
+        if isinstance(system, str):
+            block = {"type": "text", "text": system}
+            if use_cache and len(system) >= 2000:
+                block["cache_control"] = {"type": "ephemeral"}
+            system_blocks = [block]
+        elif isinstance(system, list):
             system_blocks = system
+        else:
+            system_blocks = [{"type": "text", "text": str(system)}]
         # claude-opus-4-x 以降は temperature が廃止
         _no_temp = model.startswith("claude-opus-4")
         create_kwargs = dict(

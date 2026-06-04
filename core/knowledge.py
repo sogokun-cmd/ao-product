@@ -206,10 +206,12 @@ def upsert_from_universities(
                     elif _is_better(new_entry, existing_fields[k]):
                         existing_fields[k] = new_entry
                     # 同じ値が複数回確認されたら confidence を high に昇格
+                    # run_count は UPDATE で +1 されるので、現行値 >= 2 なら UPDATE 後は 3 以上
+                    current_run = row["run_count"] or 0
                     if (k in existing_fields
                             and not _is_unknown(existing_fields[k].get("value"))
                             and str(existing_fields[k].get("value")) == str(new_entry.get("value"))
-                            and new_run_count >= 3
+                            and current_run >= 2
                             and existing_fields[k].get("confidence") != "high"):
                         existing_fields[k]["confidence"] = "high"
                 # contributor_ids 追記

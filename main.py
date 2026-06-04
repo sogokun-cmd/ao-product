@@ -240,7 +240,8 @@ app.get("/app/admin/knowledge", include_in_schema=False)(_gated("knowledge.html"
 # ── SEO ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/stats/public", include_in_schema=False)
-async def public_stats():
+@limiter.limit("30/minute")
+async def public_stats(request: Request):
     """LP用の公開統計（認証不要）"""
     from database import get_db
     db = get_db()

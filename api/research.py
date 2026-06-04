@@ -167,7 +167,8 @@ async def get_research(request_id: str, request: Request):
 
 
 @router.get("/share/{request_id}", summary="公開シェア用サマリー（認証不要）")
-async def get_share(request_id: str):
+@limiter.limit("60/minute")
+async def get_share(request_id: str, request: Request):
     """ログイン不要の公開エンドポイント。SEO・SNSシェア用に基本情報のみ返す。"""
     req = get_request(request_id)
     if not req or req["status"] != "done":

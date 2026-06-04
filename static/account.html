@@ -103,7 +103,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replac
   const params = new URLSearchParams(location.search);
   if (params.get('checkout') === 'success') {
     history.replaceState(null, '', '/app/account');
-    // Webhookがまだ来ていない可能性があるため、プランが変わるまで最大15秒ポーリング
+    // Webhookがまだ来ていない可能性があるため、プランが変わるまで最大16秒ポーリング（8回×2秒）
     const banner = document.createElement('div');
     banner.style.cssText = 'background:var(--brand-light);border:1px solid var(--brand-blue);border-radius:var(--radius);padding:14px;margin-bottom:14px;color:var(--brand-navy);font-weight:600;';
     banner.textContent = '⏳ プランを確認中…';
