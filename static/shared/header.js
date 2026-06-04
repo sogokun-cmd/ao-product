@@ -1,3 +1,38 @@
+/* アプリ内ブラウザ検知 — 全ページ共通 */
+(function () {
+  const ua = navigator.userAgent;
+  const isInApp = /Threads|Instagram|FBAN|FBAV|Line\/|TwitterAndroid|Snapchat|MicroMessenger|GSA\/|YJApp|wv\b/i.test(ua)
+    || (ua.includes('iPhone') && !ua.includes('Safari'))
+    || (ua.includes('Android') && ua.includes('wv'));
+  if (!isInApp) return;
+  const bar = document.createElement('div');
+  bar.style.cssText = [
+    'position:fixed;top:0;left:0;right:0;z-index:9999',
+    'background:#1e40af;color:#fff;font-size:.84rem;padding:10px 16px',
+    'display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap',
+    'box-shadow:0 2px 8px rgba(0,0,0,.2)',
+  ].join(';');
+  bar.innerHTML = `
+    <span>📱 アプリ内ブラウザではGoogleログインが使えません</span>
+    <button onclick="this.parentElement.remove()" style="
+      background:#fff;color:#1e40af;border:none;border-radius:6px;
+      padding:5px 14px;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap
+    ">外部ブラウザで開く方法を見る ▼</button>`;
+  bar.querySelector('button').onclick = function() {
+    bar.innerHTML = `
+      <div style="text-align:center;line-height:1.8">
+        <strong>📱 iPhoneの場合:</strong> 画面右下の「…」→「Safariで開く」<br>
+        <strong>🤖 Androidの場合:</strong> 右上「⋮」→「ブラウザで開く」<br>
+        <button onclick="this.closest('[style*=position:fixed]').remove()" style="
+          margin-top:8px;background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);
+          border-radius:6px;padding:4px 16px;cursor:pointer;font-size:.8rem
+        ">閉じる</button>
+      </div>`;
+  };
+  document.body.prepend(bar);
+  document.body.style.paddingTop = '48px';
+})();
+
 /* 共通ヘッダー描画 — 認証状態 + プラン別ナビ */
 (function () {
   const NAV = [
