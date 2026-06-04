@@ -255,6 +255,7 @@
     <div class="source-summary" id="source-summary"></div>
     <div id="tag-section" style="display:none" class="tag-section"></div>
     <div id="pdf-notice"></div>
+    <div id="knowledge-banner" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.84rem;color:#1e40af;gap:8px;align-items:center"></div>
     <div id="result-body"></div>
 
     <div class="feedback-widget" id="feedback-widget" style="display:none">
@@ -937,6 +938,16 @@ function renderResult(req, result) {
   }
 
   document.getElementById('result-body').innerHTML = html;
+
+  // 蓄積データ補完バナー
+  const _kBanner = document.getElementById('knowledge-banner');
+  if (kMerged > 0) {
+    _kBanner.innerHTML = `🧠 <strong>${kMerged}件</strong>のフィールドを蓄積データから補完しました <span style="color:#6b7280;font-size:.76rem">（過去のリサーチ結果を活用）</span>`;
+    _kBanner.style.display = 'flex';
+  } else {
+    _kBanner.style.display = 'none';
+  }
+
   document.getElementById('result-wrap').style.display = 'block';
 
   // タグを読み込んで表示

@@ -239,6 +239,27 @@ app.get("/app/admin/knowledge", include_in_schema=False)(_gated("knowledge.html"
 
 # ── SEO ────────────────────────────────────────────────────────────────────
 
+@app.get("/api/stats/public", include_in_schema=False)
+async def public_stats():
+    """LP用の公開統計（認証不要）"""
+    from database import get_db
+    db = get_db()
+    try:
+        research = db.execute(
+            "SELECT COUNT(*) AS c FROM research_requests WHERE status='done'"
+        ).fetchone()
+        knowledge = db.execute(
+            "SELECT COUNT(DISTINCT university) AS universities, COALESCE(SUM(run_count),0) AS total_runs FROM university_knowledge"
+        ).fetchone()
+        return {
+            "research_count":   research["c"],
+            "university_count": knowledge["universities"] or 0,
+            "knowledge_runs":   knowledge["total_runs"] or 0,
+        }
+    finally:
+        db.close()
+
+
 @app.get("/share/{request_id}", include_in_schema=False)
 async def share_page(request_id: str):
     return FileResponse(str(_STATIC_DIR / "share.html"))

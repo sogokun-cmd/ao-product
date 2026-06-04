@@ -199,11 +199,19 @@ def upsert_from_universities(
 
             if row:
                 existing_fields = json.loads(row["fields_json"] or "{}")
+                new_run_count = (row["run_count"] or 0) + 1
                 for k, new_entry in new_fields.items():
                     if k not in existing_fields or _is_unknown(existing_fields[k].get("value")):
                         existing_fields[k] = new_entry
                     elif _is_better(new_entry, existing_fields[k]):
                         existing_fields[k] = new_entry
+                    # 同じ値が複数回確認されたら confidence を high に昇格
+                    if (k in existing_fields
+                            and not _is_unknown(existing_fields[k].get("value"))
+                            and str(existing_fields[k].get("value")) == str(new_entry.get("value"))
+                            and new_run_count >= 3
+                            and existing_fields[k].get("confidence") != "high"):
+                        existing_fields[k]["confidence"] = "high"
                 # contributor_ids 追記
                 try:
                     contribs = json.loads(row["contributor_ids"] or "[]")

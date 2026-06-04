@@ -69,6 +69,14 @@ def get_stats(request: Request):
             GROUP BY provider
         """).fetchall()
 
+        knowledge_stats = db.execute("""
+            SELECT COUNT(*) AS entries,
+                   COUNT(DISTINCT university) AS universities,
+                   SUM(run_count) AS total_runs,
+                   ROUND(AVG(run_count), 1) AS avg_runs
+            FROM university_knowledge
+        """).fetchone()
+
     finally:
         db.close()
 
@@ -92,4 +100,10 @@ def get_stats(request: Request):
             {"provider": r["provider"], "cost_usd": round(r["total_cost"], 4), "calls": r["calls"]}
             for r in llm_cost_24h
         ],
+        "knowledge": {
+            "entries":      knowledge_stats["entries"] or 0,
+            "universities": knowledge_stats["universities"] or 0,
+            "total_runs":   knowledge_stats["total_runs"] or 0,
+            "avg_runs":     knowledge_stats["avg_runs"] or 0,
+        },
     }

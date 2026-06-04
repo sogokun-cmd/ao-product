@@ -643,6 +643,37 @@
   </div>
 </section>
 
+<!-- Network Effect -->
+<section style="padding:72px 0;background:#fff">
+  <div class="container" style="text-align:center">
+    <div class="section-eyebrow">Network Effect</div>
+    <h2 class="section-title">使うほど、全員の精度が上がる</h2>
+    <p class="section-sub">誰かが早稲田を調べると、次に早稲田を調べる人はより精度の高い結果を得られます。<br>リサーチが積み重なるほど知識ベースが育ち、「不明」が減っていきます。</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:640px;margin:0 auto">
+      <div class="card" style="text-align:center;padding:28px">
+        <div style="font-size:2.2rem;font-weight:800;color:var(--brand-blue);font-family:var(--font-num)" id="lp-research-count">—</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:6px">累計リサーチ数</div>
+      </div>
+      <div class="card" style="text-align:center;padding:28px">
+        <div style="font-size:2.2rem;font-weight:800;color:var(--brand-blue);font-family:var(--font-num)" id="lp-univ-count">—</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:6px">蓄積大学数</div>
+      </div>
+      <div class="card" style="text-align:center;padding:28px">
+        <div style="font-size:2.2rem;font-weight:800;color:var(--brand-blue);font-family:var(--font-num)" id="lp-runs-count">—</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:6px">累計確認回数</div>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+fetch('/api/stats/public').then(r => r.ok ? r.json() : null).then(d => {
+  if (!d) return;
+  document.getElementById('lp-research-count').textContent = (d.research_count || 0).toLocaleString();
+  document.getElementById('lp-univ-count').textContent = (d.university_count || 0).toLocaleString();
+  document.getElementById('lp-runs-count').textContent = (d.knowledge_runs || 0).toLocaleString();
+}).catch(() => {});
+</script>
+
 <!-- Pricing -->
 <section class="pricing-preview">
   <div class="container">
