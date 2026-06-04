@@ -2785,7 +2785,7 @@ def _filter_general_exam_entries(result: dict) -> dict:
             u.get("selection_phase_2", ""),
         ]))
         check_text = " ".join(filter(None, [
-            " ".join(u.get("selection_methods", [])),
+            " ".join(str(m) for m in (u.get("selection_methods") or []) if m),
             sel_detail,
             u.get("features", ""),
             u.get("eligibility", ""),
