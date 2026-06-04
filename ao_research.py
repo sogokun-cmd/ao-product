@@ -4530,7 +4530,7 @@ def _print_university_result(data: dict):
         t.add_column("出願期間", max_width=14)
         t.add_column("選考方法", max_width=20)
         for u in universities:
-            methods = " / ".join(u.get("selection_methods", []))
+            methods = " / ".join(str(m) for m in (u.get("selection_methods") or []) if m)
             rh = u.get("ratio_history", {})
             ratio_str = f"{rh.get('2026','?')} / {rh.get('2025','?')} / {rh.get('2024','?')}"
             ext_req = u.get("external_exam_requirements", {})
@@ -5540,7 +5540,7 @@ def _build_yearly_data_blocks_for_faculty(dept_entries: list, ts: str, keyword: 
         ratio_h = u.get("ratio_history", {})
         quota_h = u.get("quota_history", {})
         appli_h = u.get("applicants_history", {})
-        methods = " / ".join(u.get("selection_methods", [])) or "情報なし"
+        methods = " / ".join(str(m) for m in (u.get("selection_methods") or []) if m) or "情報なし"
         gpa     = u.get("gpa_requirement", "")
 
         for year in ["2026", "2025", "2024"]:
@@ -5777,7 +5777,7 @@ def _build_notion_blocks_single_university(u: dict, ts: str, keyword: str) -> li
     basics = (
         f"定員: {u.get('quota','情報なし')}\n"
         f"評定条件: {u.get('gpa_requirement','情報なし')}\n"
-        f"選考方法: {' / '.join(u.get('selection_methods', [])) or '情報なし'}\n"
+        f"選考方法: {' / '.join(str(m) for m in (u.get('selection_methods') or []) if m) or '情報なし'}\n"
         f"難易度・倍率: {u.get('difficulty','情報なし')}"
     )
     blocks.append(_notion_paragraph(basics))
@@ -5913,7 +5913,7 @@ def _build_notion_blocks_university(data: dict) -> list:
             blocks.append(_notion_paragraph(
                 f"定員: {u.get('quota','情報なし')}　"
                 f"出願期間: {u.get('application_period','情報なし')}\n"
-                f"選考: {' / '.join(u.get('selection_methods',[]))}　"
+                f"選考: {' / '.join(str(m) for m in (u.get('selection_methods') or []) if m)}　"
                 f"難易度: {u.get('difficulty','情報なし')}"
             ))
             ap = u.get("admission_policy")
