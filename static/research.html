@@ -953,6 +953,36 @@ function renderResult(req, result) {
 
   document.getElementById('result-body').innerHTML = html;
 
+  // 残り1回バナー（Freeユーザーが2回使用済み = 残り1回）
+  if (_me?.plan?.plan_code === 'free') {
+    const used = _me.plan.used_this_period ?? 0;
+    const quota = _me.plan.monthly_quota ?? 3;
+    const remaining = quota - used;
+    const existingQuotaBanner = document.getElementById('quota-warn-banner');
+    if (existingQuotaBanner) existingQuotaBanner.remove();
+    if (remaining === 1) {
+      const qb = document.createElement('div');
+      qb.id = 'quota-warn-banner';
+      qb.style.cssText = 'background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap';
+      qb.innerHTML = `
+        <div style="font-size:.88rem;color:#9a3412">
+          ⚡ <strong>無料リサーチ残り1回</strong>です。使い切る前にプランを確認してください。
+        </div>
+        <a href="/pricing" class="btn btn-primary" style="white-space:nowrap;padding:8px 18px;font-size:.84rem">プランを見る →</a>`;
+      document.getElementById('result-wrap').prepend(qb);
+    } else if (remaining <= 0) {
+      const qb = document.createElement('div');
+      qb.id = 'quota-warn-banner';
+      qb.style.cssText = 'background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap';
+      qb.innerHTML = `
+        <div style="font-size:.88rem;color:#991b1b">
+          🔒 <strong>無料リサーチを使い切りました。</strong>続けて使うにはプランへの登録が必要です。
+        </div>
+        <a href="/pricing" class="btn btn-primary" style="white-space:nowrap;padding:8px 18px;font-size:.84rem">プランを見る →</a>`;
+      document.getElementById('result-wrap').prepend(qb);
+    }
+  }
+
   // 蓄積データ補完バナー
   const _kBanner = document.getElementById('knowledge-banner');
   if (kMerged > 0) {

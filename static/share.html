@@ -82,10 +82,11 @@
   <div class="lock-section">
     <div class="lock-icon">🔒</div>
     <div class="lock-title">詳細情報は無料登録で閲覧できます</div>
-    <div class="lock-desc">出願資格・評定・英語資格・提出書類など<br>一次情報ベースの詳細データを確認できます。</div>
+    <div class="lock-desc" id="lock-desc">出願資格・評定・英語資格・提出書類など<br>一次情報ベースの詳細データを確認できます。</div>
     <div class="lock-fields" id="lock-fields"></div>
-    <a href="/register" class="btn-cta">無料で登録する</a>
+    <a href="/register" class="btn-cta" id="cta-btn">無料で登録する（3回まで無料）</a>
     <a href="/login" class="btn-secondary">ログイン</a>
+    <p style="margin-top:12px;font-size:.75rem;color:var(--muted)">クレジットカード不要 · 登録30秒</p>
   </div>
 
   <p class="updated" id="updated-at"></p>
@@ -164,6 +165,11 @@ async function load() {
     document.getElementById('lock-fields').innerHTML = d.locked
       .map(k => `<span class="lock-field">${LOCK_LABELS[k] || k}</span>`)
       .join('');
+    // CTA をロック件数付きに強化
+    const lockedNames = d.locked.map(k => LOCK_LABELS[k] || k).join('・');
+    document.getElementById('lock-desc').innerHTML =
+      `<strong>${d.locked.length}件の詳細情報</strong>が無料登録で見られます<br><span style="font-size:.82rem;color:var(--muted)">${esc(lockedNames)}</span>`;
+    document.getElementById('cta-btn').textContent = `無料登録して${d.locked.length}件の詳細を見る`;
   }
 
   if (d.updated_at) {
