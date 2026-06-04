@@ -34,7 +34,7 @@ from typing import Any, Iterable
 
 from database import get_db
 
-STALE_MONTHS = int(os.environ.get("KNOWLEDGE_STALE_MONTHS", "18"))
+STALE_MONTHS = int(os.environ.get("KNOWLEDGE_STALE_MONTHS", "12"))
 
 
 # 共有ナレッジ化するトップレベル「フィールド名」。UI で表示される主要情報のみ。
