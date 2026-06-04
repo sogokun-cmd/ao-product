@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大学を探す — AOリサーチ</title>
+<link rel="stylesheet" href="/shared/tokens.css">
+<style>
+  .profile-card { background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--gap-lg);margin-bottom:20px }
+  .profile-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px }
+  @media(max-width:600px){.profile-grid{grid-template-columns:1fr}}
+  .profile-grid.full { grid-template-columns:1fr }
+  label { font-size:.78rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:4px }
+  input[type=text],input[type=number],select,textarea {
+    width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+    font-family:inherit;font-size:.9rem;outline:none;background:#fff;
+    transition:border-color .15s;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--brand-blue)}
+  textarea{min-height:72px;resize:vertical}
+  .result-card {
+    background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:18px 20px;display:flex;gap:14px;align-items:flex-start;
+    transition:box-shadow .15s;cursor:pointer;
+  }
+  .result-card:hover{box-shadow:var(--shadow)}
+  .score-circle {
+    width:52px;height:52px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    font-family:var(--font-num);font-weight:800;font-size:1.1rem;
+  }
+  .score-high  { background:#d1fae5;color:#065f46 }
+  .score-mid   { background:#fef3c7;color:#92400e }
+  .score-low   { background:#f3f4f6;color:#6b7280 }
+  .score-none  { background:#e0e7ff;color:#4338ca }
+  .uni-name { font-weight:700;color:var(--brand-navy);font-size:.98rem }
+  .uni-sub  { font-size:.8rem;color:var(--muted);margin-top:2px }
+  .uni-reason { font-size:.8rem;color:var(--ink-soft);margin-top:6px;line-height:1.5 }
+  .lock-banner {
+    background:#fff;border:1.5px solid var(--border);border-radius:14px;
+    padding:24px;text-align:center;margin-top:8px
+  }
+  .gpa-chips { display:flex;gap:6px;flex-wrap:wrap;margin-top:4px }
+  .gpa-chip {
+    padding:5px 12px;border-radius:20px;font-size:.8rem;font-weight:600;
+    border:1.5px solid var(--border);cursor:pointer;background:#fff;color:var(--muted);
+    transition:all .12s
+  }
+  .gpa-chip.active{background:var(--brand-light);color:var(--brand-blue);border-color:var(--brand-blue)}
+</style>
+</head>
+<body>
+<header class="app-header" id="app-header"></header>
+<main class="app-shell">
+  <h1 style="margin:0 0 4px;color:var(--brand-navy)">自分に合う大学を探す</h1>
+  <p class="muted" style="margin-bottom:20px">プロフィールを入力すると、蓄積データから候補大学を提案します。</p>
+
+  <div class="profile-card">
+    <h2 class="card-title" style="margin-bottom:14px">📋 あなたのプロフィール</h2>
+    <div class="profile-grid">
+      <div>
+        <label>評定平均（現時点）</label>
+        <div class="gpa-chips">
+          <span class="gpa-chip" onclick="setGpa(null)">未入力</span>
+          <span class="gpa-chip" onclick="setGpa(3.0)">3.0</span>
+          <span class="gpa-chip" onclick="setGpa(3.5)">3.5</span>
+          <span class="gpa-chip" onclick="setGpa(3.8)">3.8</span>
+          <span class="gpa-chip" onclick="setGpa(4.0)">4.0</span>
+          <span class="gpa-chip" onclick="setGpa(4.3)">4.3</span>
+          <span class="gpa-chip" onclick="setGpa(4.5)">4.5</span>
+        </div>
+        <input type="number" id="gpa" min="1" max="5" step="0.1" placeholder="例: 3.8" style="margin-top:8px" oninput="syncGpaChips()">
+      </div>
+      <div>
+        <label>英語資格</label>
+        <select id="english_type" onchange="showScoreInput()">
+          <option value="">なし / 未取得</option>
+          <option value="英検">英検</option>
+          <option value="TOEFL iBT">TOEFL iBT</option>
+          <option value="IELTS">IELTS</option>
+          <option value="GTEC CBT">GTEC CBT</option>
+          <option value="TEAP">TEAP</option>
+          <option value="TOEIC">TOEIC</option>
+        </select>
+        <input type="text" id="english_score" placeholder="スコアまたは級（例: 2300 / 準1級）" style="margin-top:6px" id="english_score_input">
+      </div>
+    </div>
+    <div class="profile-grid" style="margin-top:14px">
+      <div>
+        <label>高校での活動実績</label>
+        <textarea id="activities" placeholder="例: 吹奏楽部（全国大会出場）、生徒会副会長、ボランティア活動2年間"></textarea>
+      </div>
+      <div>
+        <label>興味のある分野・学びたいこと</label>
+        <textarea id="interests" placeholder="例: 環境問題、国際関係、起業・ビジネス"></textarea>
+      </div>
+    </div>
+    <div class="profile-grid full" style="margin-top:14px">
+      <div>
+        <label>将来やりたいこと・なりたい姿</label>
+        <textarea id="future" placeholder="例: 地方創生に関わる仕事をしたい。行政と民間をつなぐ人材になりたい。"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+      <button class="btn btn-primary" onclick="discover()" id="discover-btn">この条件で大学を探す</button>
+      <button class="btn" onclick="saveProfile()">プロフィールを保存</button>
+      <span id="save-msg" style="font-size:.8rem;color:var(--green);display:none">保存しました</span>
+    </div>
+  </div>
+
+  <div id="result-section" style="display:none">
+    <div id="result-meta" style="font-size:.84rem;color:var(--muted);margin-bottom:12px"></div>
+    <div id="result-list" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</main>
+<script src="/shared/header.js"></script>
+<script>
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+let _gpa = null;
+
+function setGpa(v) {
+  _gpa = v;
+  document.getElementById('gpa').value = v ?? '';
+  syncGpaChips();
+}
+function syncGpaChips() {
+  const v = parseFloat(document.getElementById('gpa').value) || null;
+  _gpa = v;
+  document.querySelectorAll('.gpa-chip').forEach(el => {
+    const cv = el.textContent === '未入力' ? null : parseFloat(el.textContent);
+    el.classList.toggle('active', cv === v || (cv === null && v === null));
+  });
+}
+
+(async function() {
+  const me = await renderHeader(document.getElementById('app-header'));
+  if (!me) { location.href = '/login'; return; }
+  // プロフィール読み込み
+  try {
+    const r = await fetch('/api/me/profile');
+    if (r.ok) {
+      const p = await r.json();
+      if (p.gpa) { document.getElementById('gpa').value = p.gpa; _gpa = p.gpa; syncGpaChips(); }
+      document.getElementById('english_type').value = p.english_type || '';
+      document.getElementById('english_score').value = p.english_score || '';
+      document.getElementById('activities').value = p.activities || '';
+      document.getElementById('interests').value = p.interests || '';
+      document.getElementById('future').value = p.future || '';
+    }
+  } catch(_){}
+})();
+
+async function saveProfile() {
+  const body = {
+    gpa: _gpa,
+    english_type:  document.getElementById('english_type').value,
+    english_score: document.getElementById('english_score').value,
+    activities:    document.getElementById('activities').value,
+    interests:     document.getElementById('interests').value,
+    future:        document.getElementById('future').value,
+    concerns:      '',
+  };
+  await fetch('/api/me/profile', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const msg = document.getElementById('save-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 2000);
+}
+
+async function discover() {
+  await saveProfile();
+  const btn = document.getElementById('discover-btn');
+  btn.textContent = '検索中…'; btn.disabled = true;
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('result-list').innerHTML = '<div class="muted">候補大学を探しています…</div>';
+
+  try {
+    const r = await fetch('/api/me/discover', {method:'POST'});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.status); }
+    const data = await r.json();
+    renderResults(data.results || [], data.total || 0, data.locked || false);
+  } catch(e) {
+    document.getElementById('result-list').innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`;
+  } finally {
+    btn.textContent = 'この条件で大学を探す'; btn.disabled = false;
+  }
+}
+
+function renderResults(items, total, locked) {
+  const meta = document.getElementById('result-meta');
+  const list = document.getElementById('result-list');
+  if (!items.length) {
+    meta.textContent = '条件に合う大学が見つかりませんでした。プロフィールを変えて再試行してください。';
+    list.innerHTML = '';
+    return;
+  }
+  meta.innerHTML = locked
+    ? `<span style="color:var(--brand-blue);font-weight:700">${total}校 候補が見つかりました</span>（3校まで表示 — 全件はスタンダード以上）`
+    : `<span style="font-weight:700">${total}校 候補が見つかりました</span>`;
+
+  list.innerHTML = items.map(it => {
+    const score = it.match_score;
+    const scoreClass = !score ? 'score-none' : score >= 70 ? 'score-high' : score >= 50 ? 'score-mid' : 'score-low';
+    const scoreText = score != null ? score : '?';
+    const sub = [it.faculty, it.department, it.admission_method].filter(Boolean).join(' / ');
+    const tags = [];
+    if (it.gpa_required) tags.push(`評定${it.gpa_required}以上`);
+    if (it.english_required) tags.push('英語必須');
+    return `<div class="result-card" onclick="location.href='/app/search?keyword=${encodeURIComponent(it.university)}'">
+      <div class="score-circle ${scoreClass}">${scoreText}</div>
+      <div style="flex:1">
+        <div class="uni-name">${esc(it.university)}</div>
+        <div class="uni-sub">${esc(sub)}</div>
+        ${tags.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${tags.map(t=>`<span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--muted)">${esc(t)}</span>`).join('')}</div>` : ''}
+        ${it.match_reason ? `<div class="uni-reason">💬 ${esc(it.match_reason)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  if (locked) {
+    list.innerHTML += `
+      <div class="lock-banner">
+        <div style="font-size:1rem;font-weight:700;color:var(--brand-navy);margin-bottom:8px">
+          🔒 残り${total - items.length}校はスタンダードプランで見られます
+        </div>
+        <div style="font-size:.84rem;color:var(--muted);margin-bottom:14px">
+          マッチ度スコアと理由もあわせて確認できます
+        </div>
+        <a href="/pricing" class="btn btn-primary">プランを見る →</a>
+      </div>`;
+  }
+}
+</script>
+</body>
+</html>

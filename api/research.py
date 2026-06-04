@@ -519,3 +519,161 @@ async def get_me(request: Request):
 async def health():
     from core.llm_router import status as llm_status
     return {"status": "ok", "llm": llm_status()}
+
+
+# ── 自分探し（プロフィール × 大学マッチング） ───────────────────────────────────
+
+class ProfileBody(BaseModel):
+    gpa:           Optional[float] = None
+    english_type:  str = ""
+    english_score: str = ""
+    activities:    str = ""
+    future:        str = ""
+    interests:     str = ""
+    concerns:      str = ""
+
+
+@router.get("/me/profile", summary="自分のプロフィール取得")
+async def get_profile(request: Request):
+    user = require_user(request)
+    from database import get_db
+    db = get_db()
+    try:
+        row = db.execute(
+            "SELECT * FROM user_profiles WHERE user_id=?", (user["user_id"],)
+        ).fetchone()
+        if not row:
+            return {"gpa": None, "english_type": "", "english_score": "", "activities": "", "future": "", "interests": "", "concerns": ""}
+        return dict(row)
+    finally:
+        db.close()
+
+
+@router.post("/me/profile", summary="自分のプロフィール保存")
+async def save_profile(body: ProfileBody, request: Request):
+    user = require_user(request)
+    from database import get_db
+    db = get_db()
+    try:
+        db.execute(
+            """INSERT INTO user_profiles (user_id, gpa, english_type, english_score, activities, future, interests, concerns)
+               VALUES (?,?,?,?,?,?,?,?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 gpa=excluded.gpa, english_type=excluded.english_type,
+                 english_score=excluded.english_score, activities=excluded.activities,
+                 future=excluded.future, interests=excluded.interests,
+                 concerns=excluded.concerns, updated_at=datetime('now')""",
+            (user["user_id"], body.gpa, body.english_type, body.english_score,
+             body.activities, body.future, body.interests, body.concerns),
+        )
+        db.commit()
+    finally:
+        db.close()
+    return {"ok": True}
+
+
+@router.post("/me/discover", summary="プロフィールから大学をマッチング（Standard以上）")
+@limiter.limit("10/minute")
+async def discover_universities(request: Request):
+    """プロフィールを元に知識ベースから候補大学を抽出。Standard以上でLLMスコアリング。"""
+    import re as _re
+    user = require_user(request)
+    plan = get_active_plan(user["user_id"])
+    is_paid = plan["plan_code"] != "free"
+    is_premium = plan.get("plan_code") in ("premium", "tutor", "school")
+
+    from database import get_db
+    from auth.deps import PLAN_RANK
+    is_standard_plus = PLAN_RANK.get(plan["plan_code"], 0) >= 1
+
+    db = get_db()
+    try:
+        prof = db.execute(
+            "SELECT * FROM user_profiles WHERE user_id=?", (user["user_id"],)
+        ).fetchone()
+        if not prof:
+            raise HTTPException(400, "プロフィールを先に設定してください")
+        prof = dict(prof)
+
+        rows = db.execute(
+            """SELECT university, faculty, department, admission_method, fields_json, run_count
+                 FROM university_knowledge ORDER BY run_count DESC LIMIT 500"""
+        ).fetchall()
+    finally:
+        db.close()
+
+    def _fv(fields, key):
+        e = fields.get(key)
+        if not e: return None
+        v = e.get("value") if isinstance(e, dict) else e
+        return v if v and str(v).strip() not in ("不明", "情報なし", "") else None
+
+    candidates = []
+    for r in rows:
+        try:
+            fields = _json.loads(r["fields_json"] or "{}")
+        except Exception:
+            continue
+
+        # GPA チェック
+        gpa_req_raw = str(_fv(fields, "gpa_requirement") or "")
+        gpa_req = None
+        m = _re.search(r"(\d(?:\.\d+)?)\s*以上", gpa_req_raw)
+        if m:
+            try: gpa_req = float(m.group(1))
+            except Exception: pass
+        if gpa_req and prof.get("gpa") and prof["gpa"] < gpa_req:
+            continue  # 評定が足りない
+
+        # 英語資格チェック（英語不要なら誰でも通過）
+        eng_req = _fv(fields, "external_exam_requirements")
+        if eng_req and "不要" not in str(eng_req) and "なし" not in str(eng_req):
+            if not prof.get("english_type") and not prof.get("english_score"):
+                continue  # 英語スコアなしで英語必須は除外
+
+        candidates.append({
+            "university":      r["university"],
+            "faculty":         r["faculty"],
+            "department":      r["department"],
+            "admission_method":r["admission_method"],
+            "run_count":       r["run_count"],
+            "gpa_required":    gpa_req,
+            "english_required": bool(eng_req and "不要" not in str(eng_req)),
+            "selection_methods": str(_fv(fields, "selection_methods") or ""),
+            "features":        str(_fv(fields, "features") or "")[:200],
+            "match_score":     None,
+            "match_reason":    None,
+        })
+
+    total = len(candidates)
+
+    # Standard以上: LLMでスコアリング（上位20件）
+    if is_standard_plus and candidates:
+        from core import llm_router
+        from auth.deps import get_active_plan
+        llm_router.set_llm_context(user_id=user["user_id"])
+        top = candidates[:20]
+        prof_text = f"""評定平均: {prof.get('gpa') or '不明'}
+英語資格: {prof.get('english_type', '')} {prof.get('english_score', '')}
+活動実績: {prof.get('activities', '')}
+将来やりたいこと: {prof.get('future', '')}
+興味分野: {prof.get('interests', '')}"""
+        for c in top:
+            uni_text = f"{c['university']} {c['faculty']} {c['department']}\n選考: {c['selection_methods']}\n特徴: {c['features']}"
+            try:
+                result = llm_router.call(
+                    "summarization",
+                    f"受験生のプロフィールと大学の特徴を照合し、マッチ度を0〜100点で評価してください。\n\n【受験生】\n{prof_text}\n\n【大学】\n{uni_text}\n\n必ずJSON形式で返してください: {{\"score\": 数値, \"reason\": \"50字以内の理由\"}}",
+                    "",
+                    max_tokens=150,
+                )
+                import json as _jj
+                parsed = _jj.loads(result.text.strip().lstrip("```json").rstrip("```"))
+                c["match_score"] = int(parsed.get("score", 50))
+                c["match_reason"] = parsed.get("reason", "")
+            except Exception:
+                c["match_score"] = 50
+        candidates = sorted(top, key=lambda x: -(x["match_score"] or 0))
+
+    visible = candidates if is_paid else candidates[:3]
+    return {"results": visible, "total": total, "locked": not is_paid and total > 3}

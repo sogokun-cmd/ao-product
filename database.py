@@ -333,6 +333,22 @@ def init_db() -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id, created_at DESC)")
     conn.commit()
 
+    # ── ユーザー自身のプロフィール（大学マッチング用） ──────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            user_id        INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            gpa            REAL,
+            english_type   TEXT NOT NULL DEFAULT '',
+            english_score  TEXT NOT NULL DEFAULT '',
+            activities     TEXT NOT NULL DEFAULT '',
+            future         TEXT NOT NULL DEFAULT '',
+            interests      TEXT NOT NULL DEFAULT '',
+            concerns       TEXT NOT NULL DEFAULT '',
+            updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+    conn.commit()
+
     # ── プランマスタ既存行のアップデート（features_json の差分修正） ────────────
     for code, features in [
         ("standard", '{"research":true,"compare":"light","save":true,"diagnosis":true,"analysis":false}'),

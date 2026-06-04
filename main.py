@@ -232,8 +232,9 @@ async def legal_pages(request: Request):
     name = request.url.path.lstrip("/")
     return FileResponse(str(_STATIC_DIR / f"{name}.html"))
 
-app.get("/app/compare", include_in_schema=False)(_gated("compare.html"))
-app.get("/app/search", include_in_schema=False)(_gated("search.html"))
+app.get("/app/compare",   include_in_schema=False)(_gated("compare.html"))
+app.get("/app/search",    include_in_schema=False)(_gated("search.html"))
+app.get("/app/discover",  include_in_schema=False)(_gated("discover.html"))
 app.get("/app/admin/knowledge", include_in_schema=False)(_gated("knowledge.html"))
 
 
