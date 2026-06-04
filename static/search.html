@@ -243,21 +243,25 @@ async function doSearch() {
   const grid = document.getElementById('result-grid');
   grid.innerHTML = '<div class="muted" style="padding:20px">検索中…</div>';
   try {
-    const r = await fetch(`/api/research/filter?${params}`);
+    const r = await fetch(`/api/knowledge/filter?${params}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    renderResults(data.results || []);
+    renderResults(data.results || [], data.total || 0, data.locked || false);
   } catch(e) {
     grid.innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`;
   }
 }
 
-function renderResults(items) {
+function renderResults(items, total, locked) {
   const grid = document.getElementById('result-grid');
   const meta = document.getElementById('result-meta');
-  meta.textContent = `${items.length}件 該当`;
+  if (locked) {
+    meta.innerHTML = `<span style="color:var(--brand-blue);font-weight:700">${total}件 該当</span> <span style="color:var(--muted);font-size:.82rem">（3件まで表示 — 全件はスタンダード以上）</span>`;
+  } else {
+    meta.textContent = `${total}件 該当`;
+  }
   if (!items.length) {
-    grid.innerHTML = '<div class="muted" style="padding:20px">該当するリサーチ結果がありません。<a href="/app/research">新しいリサーチ</a>を実行してください。</div>';
+    grid.innerHTML = '<div class="muted" style="padding:20px">該当する大学が見つかりません。条件を変えて再検索してください。</div>';
     return;
   }
   grid.innerHTML = items.map(it => {
@@ -292,6 +296,22 @@ function renderResults(items) {
       </div>
     </div>`;
   }).join('');
+
+  if (locked) {
+    grid.innerHTML += `
+      <div style="background:linear-gradient(180deg,rgba(255,255,255,0) 0%,#fff 40%);
+                  position:relative;margin-top:-60px;padding:60px 24px 24px;text-align:center">
+        <div style="background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:24px;max-width:400px;margin:0 auto">
+          <div style="font-size:1.1rem;font-weight:700;color:var(--brand-navy);margin-bottom:8px">
+            🔒 残り${total - items.length}件は<br>スタンダードプランで見られます
+          </div>
+          <div style="font-size:.84rem;color:var(--muted);margin-bottom:16px">
+            全ユーザーの蓄積データから条件検索できます
+          </div>
+          <a href="/pricing" class="btn btn-primary" style="display:inline-flex">プランを見る →</a>
+        </div>
+      </div>`;
+  }
 }
 
 const _compareQueue = new Set();

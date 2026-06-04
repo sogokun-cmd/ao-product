@@ -370,6 +370,117 @@ def filter_research(
     return {"results": results, "total": len(results)}
 
 
+@router.get("/knowledge/filter", summary="共有知識ベースからフィルタ検索（Standard以上で全件）")
+@limiter.limit("30/minute")
+async def filter_knowledge(
+    request: Request,
+    interview:        Optional[bool]  = Query(None),
+    essay:            Optional[bool]  = Query(None),
+    no_presentation:  Optional[bool]  = Query(None),
+    english_required: Optional[bool]  = Query(None),
+    activity_required:Optional[bool]  = Query(None),
+    gpa_max:          Optional[float] = Query(None),
+    ratio_max:        Optional[float] = Query(None),
+    ratio_min:        Optional[float] = Query(None),
+    keyword:          Optional[str]   = Query(None, max_length=100),
+):
+    """全ユーザーの蓄積データから条件フィルタ。Free は先頭3件のみ、Standard以上は全件。"""
+    import re as _re
+    user = require_user(request)
+    plan = get_active_plan(user["user_id"])
+    is_paid = plan["plan_code"] != "free"
+
+    from database import get_db
+    db = get_db()
+    try:
+        rows = db.execute(
+            """SELECT university, faculty, department, admission_method,
+                      fields_json, run_count, updated_at
+                 FROM university_knowledge
+                ORDER BY run_count DESC, updated_at DESC
+                LIMIT 1000"""
+        ).fetchall()
+    finally:
+        db.close()
+
+    def _field_val(fields, key):
+        entry = fields.get(key)
+        if not entry: return None
+        v = entry.get("value") if isinstance(entry, dict) else entry
+        return v if v and str(v).strip() not in ("不明", "情報なし", "要確認", "") else None
+
+    results = []
+    for r in rows:
+        try:
+            fields = _json.loads(r["fields_json"] or "{}")
+        except Exception:
+            continue
+
+        # フラグを動的計算
+        sel = str(_field_val(fields, "selection_methods") or "")
+        has_interview = any(w in sel for w in ["面接", "口頭", "プレゼン"])
+        has_essay     = any(w in sel for w in ["小論文", "作文", "論述"])
+        has_pres      = any(w in sel for w in ["プレゼン", "発表"])
+        eng_val       = _field_val(fields, "external_exam_requirements")
+        has_english   = bool(eng_val) and "不要" not in str(eng_val) and "なし" not in str(eng_val)
+        act_val       = _field_val(fields, "eligibility")
+        has_activity  = bool(act_val) and any(w in str(act_val) for w in ["実績", "活動", "部活", "受賞"])
+
+        gpa_val = None
+        gpa_raw = str(_field_val(fields, "gpa_requirement") or "")
+        m = _re.search(r"(\d(?:\.\d+)?)\s*以上", gpa_raw)
+        if m:
+            try: gpa_val = float(m.group(1))
+            except Exception: pass
+
+        ratio_val = None
+        rh = _field_val(fields, "ratio_history")
+        if isinstance(rh, dict):
+            for yr in ["2026", "2025", "2024"]:
+                entry = rh.get(yr)
+                v = entry.get("value") if isinstance(entry, dict) else entry
+                if v:
+                    try: ratio_val = float(_re.sub(r"[^\d.]", "", str(v)))
+                    except Exception: pass
+                if ratio_val and ratio_val > 0:
+                    break
+
+        # フィルタ適用
+        if interview is not None and has_interview != interview: continue
+        if essay is not None and has_essay != essay: continue
+        if no_presentation is not None and (not has_pres) != no_presentation: continue
+        if english_required is not None and has_english != english_required: continue
+        if activity_required is not None and has_activity != activity_required: continue
+        if gpa_max is not None and gpa_val is not None and gpa_val > gpa_max: continue
+        if ratio_max is not None and ratio_val is not None and ratio_val > ratio_max: continue
+        if ratio_min is not None and ratio_val is not None and ratio_val < ratio_min: continue
+        if keyword:
+            target = " ".join(filter(None, [r["university"], r["faculty"], r["department"]])).lower()
+            if keyword.lower() not in target: continue
+
+        results.append({
+            "university":      r["university"],
+            "faculty":         r["faculty"],
+            "department":      r["department"],
+            "admission_method":r["admission_method"],
+            "run_count":       r["run_count"],
+            "updated_at":      r["updated_at"],
+            "flags": {
+                "interview":        has_interview,
+                "essay":            has_essay,
+                "presentation":     has_pres,
+                "english_required": has_english,
+                "gpa_min":          gpa_val,
+                "ratio_latest":     ratio_val,
+            },
+        })
+
+    total = len(results)
+    # Free は先頭3件のみ
+    visible = results if is_paid else results[:3]
+    return {"results": visible, "total": total, "locked": not is_paid and total > 3}
+
+
 @router.get("/me", summary="ログインユーザー情報")
 async def get_me(request: Request):
     user = require_user(request)
