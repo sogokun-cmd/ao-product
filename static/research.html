@@ -653,6 +653,20 @@ function renderResult(req, result) {
   const label = [req.university, req.faculty, req.department, req.admission_method].filter(Boolean).join(' ');
   document.getElementById('result-title').textContent = label + ' の調査結果';
 
+  // データ取得日と最新情報の注記
+  const updatedAt = (req.updated_at || req.created_at || '').replace('T', ' ').slice(0, 10);
+  const now = new Date();
+  const aoSeason = now.getMonth() >= 6 && now.getMonth() <= 9; // 7〜10月はシーズン
+  const freshnessNote = updatedAt ? `
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span>📅 データ取得日: <strong>${updatedAt}</strong></span>
+      ${aoSeason
+        ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-weight:600">⚡ シーズン中 — 大学が募集要項を更新した場合は再調査してください</span>'
+        : '<span style="color:#6b7280">2027年度募集要項は各大学7〜9月公表予定。公表後に再調査すると最新情報が反映されます。</span>'}
+    </div>` : '';
+  const titleEl = document.getElementById('result-title');
+  if (freshnessNote) titleEl.insertAdjacentHTML('afterend', freshnessNote);
+
   const summary = result.source_summary || {};
   const total = summary.total || 0;
   const kMerged = (result.result && result.result.knowledge_merged_count) || 0;
