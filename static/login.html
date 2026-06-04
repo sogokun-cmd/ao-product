@@ -151,6 +151,20 @@
 <footer class="app-footer">AOリサーチ</footer>
 
 <script>
+// アプリ内ブラウザ（WebView）検知 → Googleログイン不可の警告
+(function() {
+  const ua = navigator.userAgent;
+  const isInApp = /Threads|Instagram|FBAN|FBAV|Line\/|TwitterAndroid|Snapchat|MicroMessenger|GSA\/|YJApp|WebView|wv\b/i.test(ua)
+    || (ua.includes('iPhone') && !ua.includes('Safari'))
+    || (ua.includes('Android') && ua.includes('wv'));
+  if (!isInApp) return;
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:.86rem;color:#92400e;line-height:1.6';
+  banner.innerHTML = '⚠️ <strong>アプリ内ブラウザではGoogleログインができません。</strong><br>右上のメニューから「ブラウザで開く」（Safari / Chrome）を選択してからログインしてください。';
+  const area = document.getElementById('error-area');
+  if (area) area.insertAdjacentElement('beforebegin', banner);
+})();
+
 const params = new URLSearchParams(location.search);
 const err = params.get('error');
 const msg = params.get('msg');
