@@ -90,10 +90,10 @@ def _process(job: dict) -> None:
         enable_deep_research = PLAN_RANK.get(_plan.get("plan_code", "free"), 0) >= 2
     except Exception:
         pass
-    keyword_parts = [p for p in [
+    keyword_parts = [str(p) for p in [
         job["university"], job["faculty"], job["department"],
         job["admission_method"], job["keywords"],
-    ] if p]
+    ] if p and not isinstance(p, (dict, list))]
     keyword = " ".join(keyword_parts)
     if "総合型選抜" not in keyword:
         keyword = f"{keyword} 総合型選抜"
