@@ -145,23 +145,40 @@ class GoogleProvider(LLMProvider):
         if not self._api_key():
             return False
         try:
-            import google.generativeai  # noqa: F401
+            import google.genai  # noqa: F401
             return True
         except ImportError:
-            return False
+            try:
+                import google.generativeai  # noqa: F401 — fallback for older installs
+                return True
+            except ImportError:
+                return False
 
     def complete(self, system, user, model, max_tokens=2000, temperature=0.2, use_cache: bool = True) -> LLMResponse:
-        import google.generativeai as genai
-        genai.configure(api_key=self._api_key())
-        m = genai.GenerativeModel(model_name=model, system_instruction=system)
-        resp = m.generate_content(
-            user,
-            generation_config={
-                "max_output_tokens": max_tokens,
-                "temperature": temperature,
-            },
-        )
-        text = getattr(resp, "text", "") or ""
+        try:
+            from google import genai
+            client = genai.Client(api_key=self._api_key())
+            full_prompt = f"{system}\n\n{user}" if system else user
+            resp = client.models.generate_content(
+                model=model,
+                contents=full_prompt,
+                config=genai.types.GenerateContentConfig(
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                    system_instruction=system if system else None,
+                ),
+            )
+            text = resp.text or ""
+        except (ImportError, AttributeError):
+            # fallback to deprecated package
+            import google.generativeai as genai_old
+            genai_old.configure(api_key=self._api_key())
+            m = genai_old.GenerativeModel(model_name=model, system_instruction=system)
+            resp = m.generate_content(
+                user,
+                generation_config={"max_output_tokens": max_tokens, "temperature": temperature},
+            )
+            text = getattr(resp, "text", "") or ""
         return LLMResponse(text=text, model=model, provider=self.name)
 
 
