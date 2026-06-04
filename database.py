@@ -345,4 +345,48 @@ def init_db() -> None:
             (features, code),
         )
     conn.commit()
+
+    # ── 既存 flags_json に ratio_latest を追加（ワンタイムマイグレーション）──────
+    import json as _json, re as _re
+    rows = conn.execute(
+        "SELECT rres.request_id, rres.flags_json, rres.result_json FROM research_results rres"
+    ).fetchall()
+    for row in rows:
+        try:
+            flags = _json.loads(row["flags_json"] or "{}")
+            if "ratio_latest" in flags:
+                continue  # 既に処理済み
+            result = _json.loads(row["result_json"] or "{}")
+            ud = result.get("university_data") or {}
+            unis = (ud.get("step_c") or {}).get("universities") or ud.get("universities") or []
+            ratio_val = None
+            for u in unis:
+                rh = u.get("ratio_history") or {}
+                if not isinstance(rh, dict):
+                    continue
+                for yr in ["2026", "2025", "2024"]:
+                    entry = rh.get(yr)
+                    v = None
+                    if isinstance(entry, dict):
+                        v = entry.get("value")
+                    elif entry:
+                        v = entry
+                    if v:
+                        try:
+                            ratio_val = float(_re.sub(r"[^\d.]", "", str(v)))
+                        except Exception:
+                            pass
+                    if ratio_val and ratio_val > 0:
+                        break
+                if ratio_val:
+                    break
+            if ratio_val and ratio_val > 0:
+                flags["ratio_latest"] = ratio_val
+                conn.execute(
+                    "UPDATE research_results SET flags_json=? WHERE request_id=?",
+                    (_json.dumps(flags, ensure_ascii=False), row["request_id"]),
+                )
+        except Exception:
+            pass
+    conn.commit()
     conn.close()

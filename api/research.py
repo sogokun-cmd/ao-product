@@ -278,6 +278,8 @@ def filter_research(
     english_required:Optional[bool] = Query(None),
     activity_required:Optional[bool]= Query(None),
     gpa_max:        Optional[float] = Query(None),
+    ratio_max:      Optional[float] = Query(None),
+    ratio_min:      Optional[float] = Query(None),
     keyword:        Optional[str]   = Query(None, max_length=100),
     tag:            Optional[str]   = Query(None, max_length=50),
     limit:          int             = Query(100, le=200),
@@ -328,6 +330,13 @@ def filter_research(
             gpa = flags.get("gpa_min")
             if gpa is not None and gpa > gpa_max:
                 continue
+        if ratio_max is not None or ratio_min is not None:
+            ratio_val = flags.get("ratio_latest")
+            if ratio_val is not None:
+                if ratio_max is not None and ratio_val > ratio_max:
+                    continue
+                if ratio_min is not None and ratio_val < ratio_min:
+                    continue
         if keyword:
             q = keyword.lower()
             target = " ".join([r["university"] or "", r["faculty"] or "", r["department"] or ""]).lower()

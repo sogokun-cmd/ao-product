@@ -94,6 +94,16 @@
           <div class="chip" id="chip-gpa-45" onclick="setGpa(4.5)">4.5以下</div>
         </div>
       </div>
+      <div class="filter-group">
+        <span class="filter-label">倍率（最新年度）</span>
+        <div class="filter-chips">
+          <div class="chip" id="chip-ratio-any" onclick="setRatio(null,null)" class="active">問わない</div>
+          <div class="chip" id="chip-ratio-2" onclick="setRatio(null,2.0)">2倍以下</div>
+          <div class="chip" id="chip-ratio-3" onclick="setRatio(null,3.0)">3倍以下</div>
+          <div class="chip" id="chip-ratio-5" onclick="setRatio(null,5.0)">5倍以下</div>
+          <div class="chip" id="chip-ratio-high" onclick="setRatio(5.0,null)">5倍超</div>
+        </div>
+      </div>
     </div>
     <div class="filter-row" style="margin-bottom:0">
       <div class="filter-group">
@@ -127,6 +137,7 @@ function esc(s) {
 let _filters = {
   interview: null, essay: null, no_presentation: null,
   interview_only: null, english_required: null, gpa_max: null,
+  ratio_max: null, ratio_min: null,
 };
 let _searchTimer = null;
 
@@ -196,13 +207,22 @@ function scheduleSearch() {
   _searchTimer = setTimeout(doSearch, 400);
 }
 
+function setRatio(min, max) {
+  _filters.ratio_min = min; _filters.ratio_max = max;
+  ['any','2','3','5','high'].forEach(id => document.getElementById(`chip-ratio-${id}`)?.classList.remove('active'));
+  const key = min === null && max === null ? 'any' : max === 2.0 ? '2' : max === 3.0 ? '3' : max === 5.0 ? '5' : 'high';
+  document.getElementById(`chip-ratio-${key}`)?.classList.add('active');
+  doSearch();
+}
+
 function resetFilters() {
-  _filters = { interview:null, essay:null, no_presentation:null, interview_only:null, english_required:null, gpa_max:null };
+  _filters = { interview:null, essay:null, no_presentation:null, interview_only:null, english_required:null, gpa_max:null, ratio_max:null, ratio_min:null };
   _engFilter = null; _gpaMax = null;
   document.getElementById('kw-input').value = '';
   document.getElementById('tag-select').value = '';
   document.querySelectorAll('.chip').forEach(el => el.classList.remove('active','active-off'));
   document.getElementById('chip-gpa-any').classList.add('active');
+  document.getElementById('chip-ratio-any').classList.add('active');
   doSearch();
 }
 
@@ -215,6 +235,8 @@ async function doSearch() {
   if (_filters.no_presentation !== null)  params.set('no_presentation', _filters.no_presentation);
   if (_filters.english_required !== null) params.set('english_required', _filters.english_required);
   if (_filters.gpa_max !== null)          params.set('gpa_max', _filters.gpa_max);
+  if (_filters.ratio_max !== null)        params.set('ratio_max', _filters.ratio_max);
+  if (_filters.ratio_min !== null)        params.set('ratio_min', _filters.ratio_min);
   if (kw)                                 params.set('keyword', kw);
   if (tagFilter)                          params.set('tag', tagFilter);
 
@@ -249,6 +271,7 @@ function renderResults(items) {
     if (flags.english_required) flagTags.push('<span class="flag-tag flag-eng">英語必須</span>');
     if (flags.gpa_min)          flagTags.push(`<span class="flag-tag flag-gpa">評定${flags.gpa_min}以上</span>`);
     if (flags.activity_required)flagTags.push('<span class="flag-tag" style="background:#f3e8ff;color:#7c3aed">実績必要</span>');
+    if (flags.ratio_latest)     flagTags.push(`<span class="flag-tag" style="background:#f0fdf4;color:#166534">倍率${flags.ratio_latest}倍</span>`);
     const upd = (it.updated_at || '').slice(0, 10);
     const unk = it.unknown_count > 0 ? `不明${it.unknown_count}件` : '完全取得';
     const tagChips = (it.tags || []).map(t =>

@@ -324,6 +324,23 @@ def _compute_flags(annotated_data: dict) -> dict:
         if _contains_any(elig, _ACTIVITY_KWS):
             if not _contains_any(elig, _ACTIVITY_OPT_KWS):
                 flags["activity_required"] = True
+
+        # 最新倍率をフラグに追加（フィルタ用）
+        rh = u.get("ratio_history") or {}
+        if isinstance(rh, dict):
+            for yr in ["2026", "2025", "2024"]:
+                entry = rh.get(yr)
+                val = None
+                if isinstance(entry, dict):
+                    v = entry.get("value")
+                    try: val = float(str(v).replace("倍", "").strip())
+                    except Exception: pass
+                elif entry:
+                    try: val = float(str(entry).replace("倍", "").strip())
+                    except Exception: pass
+                if val and val > 0:
+                    flags["ratio_latest"] = val
+                    break
     except Exception:
         pass
     return flags
