@@ -179,6 +179,10 @@
         <input id="f-dept" placeholder="例: 経済学科" maxlength="100" required>
       </div>
       <div class="field">
+        <label>コース・専攻 <span class="hint" style="font-size:.72rem;font-weight:400">（任意）</span></label>
+        <input id="f-course" placeholder="例: メディア社会専攻 / 国際コース" maxlength="100">
+      </div>
+      <div class="field">
         <label>入試方式</label>
         <input id="f-method" placeholder="例: 自由選抜入試 / SFC AO" maxlength="100">
       </div>
@@ -383,12 +387,14 @@ async function handlePdfDrop(file) {
 async function startResearch() {
   const pdfText = _pdfTab === 'file' ? (document.getElementById('f-pdf-text').value || '') : '';
   const pdfUrl  = _pdfTab === 'url'  ? document.getElementById('f-pdf').value.trim() : '';
+  const course = document.getElementById('f-course').value.trim();
+  const dept   = document.getElementById('f-dept').value.trim();
   const body = {
     university:       document.getElementById('f-univ').value.trim(),
     faculty:          document.getElementById('f-faculty').value.trim(),
-    department:       document.getElementById('f-dept').value.trim(),
+    department:       course ? `${dept}（${course}）` : dept,
     admission_method: document.getElementById('f-method').value.trim(),
-    keywords:         document.getElementById('f-kw').value.trim(),
+    keywords:         [document.getElementById('f-kw').value.trim(), course].filter(Boolean).join(' '),
     pdf_url:          pdfUrl,
     pdf_text:         pdfText,
   };
@@ -1073,9 +1079,13 @@ function addOtherMethod() {
   if (!_currentResult?.request) return;
   const req = _currentResult.request;
   // 大学・学部・学科をフォームに残したまま入試方式だけクリアしてスクロール
+  // department に「（コース）」が含まれている場合は分離して戻す
+  const deptFull = req.department || '';
+  const courseMatch = deptFull.match(/^(.+?)（(.+)）$/);
   document.getElementById('f-univ').value    = req.university || '';
   document.getElementById('f-faculty').value = req.faculty || '';
-  document.getElementById('f-dept').value    = req.department || '';
+  document.getElementById('f-dept').value    = courseMatch ? courseMatch[1] : deptFull;
+  document.getElementById('f-course').value  = courseMatch ? courseMatch[2] : '';
   document.getElementById('f-method').value  = '';
   // 入試方式フィールドにフォーカス
   const methodEl = document.getElementById('f-method');
