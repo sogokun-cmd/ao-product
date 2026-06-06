@@ -238,6 +238,7 @@
       <h2 class="result-title" id="result-title"></h2>
       <div class="actions">
         <button class="btn" id="btn-share" onclick="shareResult()" style="display:none">🔗 シェア</button>
+        <button class="btn" id="btn-other-method" onclick="addOtherMethod()" style="display:none">＋ 別の入試方式</button>
         <button class="btn" id="btn-save" onclick="openSaveDialog()" style="display:none">📌 保存</button>
         <button class="btn" id="btn-match" onclick="openMatchDialog()" style="display:none">🎯 生徒と照合</button>
         <button class="btn" id="btn-stress" onclick="openStressDialog()" style="display:none">🧪 耐圧テスト</button>
@@ -649,7 +650,7 @@ function renderResult(req, result) {
     document.getElementById('result-body').innerHTML = '<div class="empty">結果がありません</div>';
     return;
   }
-  _currentResult = result;
+  _currentResult = { ...result, request: req };
   const label = [req.university, req.faculty, req.department, req.admission_method].filter(Boolean).join(' ');
   document.getElementById('result-title').textContent = label + ' の調査結果';
 
@@ -998,8 +999,9 @@ function renderResult(req, result) {
   _currentTags = req.tags || [];
   renderTags();
 
-  // シェアボタンは全員に表示（done の場合）
+  // シェアボタン・別方式ボタンは全員に表示（done の場合）
   document.getElementById('btn-share').style.display = 'inline-flex';
+  document.getElementById('btn-other-method').style.display = 'inline-flex';
 
   // フィードバックウィジェットを初期化
   initFeedback(_currentRequestId);
@@ -1065,6 +1067,24 @@ async function submitFeedback() {
   document.getElementById('fb-stars').style.display = 'none';
   document.getElementById('fb-title') && (document.querySelector('.fb-title').style.display = 'none');
   document.getElementById('fb-done').style.display = 'block';
+}
+
+function addOtherMethod() {
+  if (!_currentResult?.request) return;
+  const req = _currentResult.request;
+  // 大学・学部・学科をフォームに残したまま入試方式だけクリアしてスクロール
+  document.getElementById('f-univ').value    = req.university || '';
+  document.getElementById('f-faculty').value = req.faculty || '';
+  document.getElementById('f-dept').value    = req.department || '';
+  document.getElementById('f-method').value  = '';
+  // 入試方式フィールドにフォーカス
+  const methodEl = document.getElementById('f-method');
+  methodEl.focus();
+  methodEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // ヒントを一時表示
+  methodEl.placeholder = '例: 一般公募推薦、学校推薦型選抜…';
+  methodEl.style.borderColor = 'var(--brand-blue)';
+  setTimeout(() => { methodEl.style.borderColor = ''; }, 3000);
 }
 
 function shareResult() {
