@@ -61,49 +61,6 @@ def create_request(
     rid = str(uuid.uuid4())
     db = get_db()
     try:
-        # 結果キャッシュ: 同一条件の done リクエストが N 日以内にあれば結果を流用
-        # ただし「失敗・空結果」は再利用しない（unknown_count > 10 or universities 空）
-        _reuse_days = int(os.environ.get("RESEARCH_REUSE_DAYS", "30"))
-        _reuse_unknown_threshold = int(os.environ.get("RESEARCH_REUSE_UNKNOWN_MAX", "10"))
-        reused_from = None
-        if _reuse_days > 0:
-            _cached = db.execute(
-                """SELECT rr.id, rres.result_json, rres.flags_json,
-                          rres.source_summary, rres.unknown_count
-                     FROM research_requests rr
-                     JOIN research_results rres ON rres.request_id = rr.id
-                    WHERE rr.status = 'done'
-                      AND rr.university = ?
-                      AND IFNULL(rr.faculty,'') = IFNULL(?,'')
-                      AND IFNULL(rr.department,'') = IFNULL(?,'')
-                      AND IFNULL(rr.admission_method,'') = IFNULL(?,'')
-                      AND (strftime('%s','now') - strftime('%s', rr.updated_at)) < ?
-                      AND IFNULL(rres.unknown_count, 999) <= ?
-                    ORDER BY rr.updated_at DESC
-                    LIMIT 1""",
-                (university, faculty, department, admission_method,
-                 _reuse_days * 86400, _reuse_unknown_threshold),
-            ).fetchone()
-            if _cached:
-                # universities 配列が空でないことを追加確認
-                try:
-                    _result = json.loads(_cached["result_json"])
-                    _ud = _result.get("university_data", {}) or {}
-                    _unis_check = (_ud.get("step_c") or {}).get("universities") or _ud.get("universities") or []
-                    # universities に少なくとも1件あり、かつ主要フィールドが埋まっていることを確認
-                    _has_content = False
-                    for _u in _unis_check:
-                        for _f in ("quota", "application_period", "eligibility"):
-                            _v = _u.get(_f)
-                            if _v and str(_v).strip() not in ("不明", "情報なし", ""):
-                                _has_content = True
-                                break
-                        if _has_content:
-                            break
-                    if _has_content:
-                        reused_from = _cached["id"]
-                except Exception:
-                    pass
         db.execute(
             """INSERT INTO research_requests
                (id, user_id, team_id, university, faculty, department,
@@ -111,23 +68,9 @@ def create_request(
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (rid, user_id, team_id, university, faculty, department,
              admission_method, keywords, pdf_url, pdf_text,
-             "done" if reused_from else "pending",
-             json.dumps([f"キャッシュ再利用（過去30日以内の同一条件リサーチから）"] if reused_from else [], ensure_ascii=False)),
+             "pending",
+             json.dumps([], ensure_ascii=False)),
         )
-        if reused_from:
-            db.execute(
-                """INSERT INTO research_results
-                     (request_id, result_json, flags_json, source_summary, unknown_count)
-                   VALUES (?, ?, ?, ?, ?)
-                   ON CONFLICT(request_id) DO UPDATE SET
-                     result_json=excluded.result_json,
-                     flags_json=excluded.flags_json,
-                     source_summary=excluded.source_summary,
-                     unknown_count=excluded.unknown_count""",
-                (rid,
-                 _cached["result_json"], _cached["flags_json"],
-                 _cached["source_summary"], _cached["unknown_count"]),
-            )
         db.commit()
     finally:
         db.close()
