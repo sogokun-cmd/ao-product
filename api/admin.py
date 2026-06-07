@@ -2,6 +2,7 @@
 管理者専用 API — リモート監視エージェント用
 GET /api/admin/stats — 利用統計・エラー状況を返す
 """
+import hmac
 import os
 from fastapi import APIRouter, HTTPException, Request
 
@@ -12,7 +13,7 @@ ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 
 def _check_token(request: Request):
     token = request.headers.get("X-Admin-Token", "")
-    if not ADMIN_TOKEN or token != ADMIN_TOKEN:
+    if not ADMIN_TOKEN or not hmac.compare_digest(token, ADMIN_TOKEN):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 

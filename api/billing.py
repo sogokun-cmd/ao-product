@@ -156,6 +156,9 @@ async def create_portal(request: Request):
 
 @router.post("/stripe/webhook", summary="Stripe Webhook", include_in_schema=False)
 async def stripe_webhook(request: Request):
+    if not STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(400, "Webhook secret not configured")
+
     payload = await request.body()
     sig = request.headers.get("Stripe-Signature", "")
 

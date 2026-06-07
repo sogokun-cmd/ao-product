@@ -36,7 +36,9 @@ async def do_register(
     password: str = Form(...),
 ):
     try:
-        user  = register_user(name.strip(), email.strip().lower(), password)
+        from auth.deps import get_client_ip
+        ip = get_client_ip(request)
+        user  = register_user(name.strip(), email.strip().lower(), password, signup_ip=ip)
         token = create_token(user["id"], user["email"], user["plan"], user["name"])
         resp  = RedirectResponse(url="/app?email_pending=1", status_code=303)
         resp.set_cookie(COOKIE_KEY, token, max_age=_MAX_AGE, httponly=True, samesite="lax", secure=_SECURE_COOKIE)
