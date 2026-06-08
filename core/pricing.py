@@ -1,6 +1,6 @@
 """
 LLM プロバイダ別単価表とコスト計算。
-単価は USD per million tokens（2026-04 確認）。
+単価は USD per million tokens（2026-06 確認）。
 """
 
 # 公式単価 (USD / 1M tokens)
@@ -10,11 +10,6 @@ LLM プロバイダ別単価表とコスト計算。
 PRICING: dict[str, dict[str, dict[str, float]]] = {
     "anthropic": {
         "claude-opus-4-8": {
-            "input":        5.00,
-            "output":      25.00,
-            "cached_input": 0.50,
-        },
-        "claude-opus-4-6": {
             "input":        5.00,
             "output":      25.00,
             "cached_input": 0.50,
@@ -31,18 +26,33 @@ PRICING: dict[str, dict[str, dict[str, float]]] = {
         },
     },
     "openai": {
-        "gpt-4o": {
-            "input":        2.50,
-            "output":      10.00,
+        "gpt-5.5": {
+            "input":        5.00,
+            "output":      30.00,
             "cached_input": 1.25,
         },
-        "gpt-4o-mini": {
-            "input":        0.15,
-            "output":       0.60,
-            "cached_input": 0.075,
+        "gpt-5.4": {
+            "input":        2.50,
+            "output":      15.00,
+            "cached_input": 0.625,
+        },
+        "gpt-5.4-mini": {
+            "input":        0.75,
+            "output":       4.50,
+            "cached_input": 0.1875,
         },
     },
     "google": {
+        "gemini-3.1-pro-preview": {
+            "input":        1.25,
+            "output":      10.00,
+            "cached_input": 0.3125,
+        },
+        "gemini-3.5-flash": {
+            "input":        0.30,
+            "output":       2.50,
+            "cached_input": 0.075,
+        },
         "gemini-2.5-pro": {
             "input":        1.25,
             "output":      10.00,
