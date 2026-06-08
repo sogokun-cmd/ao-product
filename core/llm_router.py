@@ -86,7 +86,9 @@ TASK_ROUTES: dict[str, list[tuple[str, str]]] = {
     "step_ab": [
         ("openai",    "gpt-4o"),
         ("anthropic", "claude-sonnet-4-6"),
+        ("google",    "gemini-2.5-flash"),
         ("google",    "gemini-2.5-pro"),
+        ("anthropic", "claude-haiku-4-5-20251001"),
     ],
     # Step C: 学科詳細抽出（最高品質、解像度最大）
     "step_c": [
