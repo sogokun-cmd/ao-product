@@ -10,8 +10,11 @@ UI上ではモデル名を主役にしない方針。価値は「高品質な一
 from __future__ import annotations
 
 import os
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+_CLIENT_TIMEOUT = int(os.environ.get("LLM_CLIENT_TIMEOUT_SEC", "120"))
 
 
 @dataclass
@@ -44,6 +47,19 @@ class LLMProvider(ABC):
 
 class AnthropicProvider(LLMProvider):
     name = "anthropic"
+    _client = None
+    _lock = threading.Lock()
+
+    def _get_client(self):
+        if self._client is None:
+            with self._lock:
+                if self._client is None:
+                    import anthropic
+                    self._client = anthropic.Anthropic(
+                        api_key=os.environ["ANTHROPIC_API_KEY"],
+                        timeout=_CLIENT_TIMEOUT,
+                    )
+        return self._client
 
     def is_available(self) -> bool:
         if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -55,19 +71,17 @@ class AnthropicProvider(LLMProvider):
             return False
 
     def complete(self, system, user, model, max_tokens=2000, temperature=0.2, use_cache: bool = True) -> LLMResponse:
-        import anthropic
-        client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-        # system は常に list[block] 形式に統一（文字列混在による BadRequestError 対策）
-        # キャッシュ対象: 2000文字以上のシステムプロンプト
-        if isinstance(system, str):
-            block = {"type": "text", "text": system}
-            if use_cache and len(system) >= 2000:
-                block["cache_control"] = {"type": "ephemeral"}
-            system_blocks = [block]
-        elif isinstance(system, list):
-            system_blocks = system
+        client = self._get_client()
+        # プロンプトキャッシュ: system を blocks 形式にして cache_control を付与
+        # 条件: system が 1024 トークン以上（概ね 2000 文字以上）である必要がある
+        if use_cache and isinstance(system, str) and len(system) >= 2000:
+            system_blocks = [{
+                "type": "text",
+                "text": system,
+                "cache_control": {"type": "ephemeral"},
+            }]
         else:
-            system_blocks = [{"type": "text", "text": str(system)}]
+            system_blocks = system
         # claude-opus-4-x 以降は temperature が廃止
         _no_temp = model.startswith("claude-opus-4")
         create_kwargs = dict(
@@ -98,6 +112,19 @@ class AnthropicProvider(LLMProvider):
 
 class OpenAIProvider(LLMProvider):
     name = "openai"
+    _client = None
+    _lock = threading.Lock()
+
+    def _get_client(self):
+        if self._client is None:
+            with self._lock:
+                if self._client is None:
+                    from openai import OpenAI
+                    self._client = OpenAI(
+                        api_key=os.environ["OPENAI_API_KEY"],
+                        timeout=_CLIENT_TIMEOUT,
+                    )
+        return self._client
 
     def is_available(self) -> bool:
         if not os.environ.get("OPENAI_API_KEY"):
@@ -109,8 +136,7 @@ class OpenAIProvider(LLMProvider):
             return False
 
     def complete(self, system, user, model, max_tokens=2000, temperature=0.2, use_cache: bool = True) -> LLMResponse:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        client = self._get_client()
         resp = client.chat.completions.create(
             model=model,
             max_tokens=max_tokens,
@@ -137,48 +163,45 @@ class OpenAIProvider(LLMProvider):
 
 class GoogleProvider(LLMProvider):
     name = "google"
+    _client = None
+    _lock = threading.Lock()
 
     def _api_key(self) -> str | None:
         return os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+
+    def _get_client(self):
+        if self._client is None:
+            with self._lock:
+                if self._client is None:
+                    from google import genai
+                    self._client = genai.Client(
+                        api_key=self._api_key(),
+                        http_options={"timeout": _CLIENT_TIMEOUT},
+                    )
+        return self._client
 
     def is_available(self) -> bool:
         if not self._api_key():
             return False
         try:
-            import google.genai  # noqa: F401
+            from google import genai  # noqa: F401
             return True
         except ImportError:
-            try:
-                import google.generativeai  # noqa: F401 — fallback for older installs
-                return True
-            except ImportError:
-                return False
+            return False
 
     def complete(self, system, user, model, max_tokens=2000, temperature=0.2, use_cache: bool = True) -> LLMResponse:
-        try:
-            from google import genai
-            client = genai.Client(api_key=self._api_key())
-            full_prompt = f"{system}\n\n{user}" if system else user
-            resp = client.models.generate_content(
-                model=model,
-                contents=full_prompt,
-                config=genai.types.GenerateContentConfig(
-                    max_output_tokens=max_tokens,
-                    temperature=temperature,
-                    system_instruction=system if system else None,
-                ),
-            )
-            text = resp.text or ""
-        except (ImportError, AttributeError):
-            # fallback to deprecated package
-            import google.generativeai as genai_old
-            genai_old.configure(api_key=self._api_key())
-            m = genai_old.GenerativeModel(model_name=model, system_instruction=system)
-            resp = m.generate_content(
-                user,
-                generation_config={"max_output_tokens": max_tokens, "temperature": temperature},
-            )
-            text = getattr(resp, "text", "") or ""
+        client = self._get_client()
+        from google.genai import types
+        resp = client.models.generate_content(
+            model=model,
+            contents=user,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                max_output_tokens=max_tokens,
+                temperature=temperature,
+            ),
+        )
+        text = getattr(resp, "text", "") or ""
         return LLMResponse(text=text, model=model, provider=self.name)
 
 
