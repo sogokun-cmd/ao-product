@@ -301,9 +301,18 @@ def get_costs(request: Request):
             FROM api_usage_log GROUP BY provider, model ORDER BY cost DESC
         """).fetchall()
         by_task = db.execute("""
-            SELECT task, COUNT(*) AS calls, COALESCE(SUM(cost_usd),0) AS cost
+            SELECT task, COUNT(*) AS calls, COALESCE(SUM(cost_usd),0) AS cost,
+                   COALESCE(SUM(tokens_in),0) AS tin,
+                   COALESCE(SUM(tokens_out),0) AS tout,
+                   COALESCE(SUM(cache_read),0) AS cread
             FROM api_usage_log GROUP BY task ORDER BY cost DESC
         """).fetchall()
+        tokens = db.execute("""
+            SELECT COALESCE(SUM(tokens_in),0) AS tin,
+                   COALESCE(SUM(tokens_out),0) AS tout,
+                   COALESCE(SUM(cache_read),0) AS cread
+            FROM api_usage_log
+        """).fetchone()
         # 完了したリサーチ1件あたりのコスト
         per_research = db.execute("""
             SELECT COUNT(DISTINCT aul.request_id) AS researches,
@@ -332,9 +341,16 @@ def get_costs(request: Request):
             for r in by_provider
         ],
         "by_task": [
-            {"task": r["task"], "calls": r["calls"], "cost_usd": round(r["cost"], 4)}
+            {"task": r["task"], "calls": r["calls"], "cost_usd": round(r["cost"], 4),
+             "tokens_in": r["tin"], "tokens_out": r["tout"], "cache_read": r["cread"],
+             "avg_cost_usd": round(r["cost"] / r["calls"], 4) if r["calls"] else None}
             for r in by_task
         ],
+        "tokens": {
+            "in": tokens["tin"], "out": tokens["tout"], "cache_read": tokens["cread"],
+            "cache_hit_ratio": round(tokens["cread"] / (tokens["tin"] + tokens["cread"]), 3)
+                               if (tokens["tin"] + tokens["cread"]) else 0.0,
+        },
         "per_done_research": {
             "researches": done_n,
             "cost_usd": round(per_research["cost"], 4),
