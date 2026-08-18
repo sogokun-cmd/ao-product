@@ -1,6 +1,7 @@
 """
 管理者専用 API — リモート監視エージェント用
-GET /api/admin/stats — 利用統計・エラー状況を返す
+GET  /api/admin/stats                  — 利用統計・エラー状況を返す
+POST /api/admin/refund-errored-usage   — エラーで終わった過去の調査の利用回数を遡って返却する
 """
 import hmac
 import os
@@ -107,4 +108,53 @@ def get_stats(request: Request):
             "total_runs":   knowledge_stats["total_runs"] or 0,
             "avg_runs":     knowledge_stats["avg_runs"] or 0,
         },
+    }
+
+
+@router.post("/refund-errored-usage")
+def refund_errored_usage(request: Request, dry_run: bool = True):
+    """エラーで終わった調査が消費した利用回数を遡って返却する。
+
+    今後の分は `_set_error` が自動で返すため、これは過去分の穴埋め用。
+    冪等 — 返却済みの調査は usage_logs に行が残っていないので二重返却しない。
+    `dry_run=true`（既定）では対象を数えるだけで変更しない。
+    """
+    _check_token(request)
+    from auth.deps import refund_usage_for_request
+    from database import get_db
+
+    db = get_db()
+    try:
+        rows = db.execute("""
+            SELECT ul.ref_id, ul.user_id, u.email, rr.error
+            FROM usage_logs ul
+            JOIN research_requests rr ON rr.id = ul.ref_id
+            LEFT JOIN users u ON u.id = ul.user_id
+            WHERE ul.action = 'research' AND rr.status = 'error'
+            ORDER BY ul.user_id
+        """).fetchall()
+    finally:
+        db.close()
+
+    targets = [
+        {"request_id": r["ref_id"], "user_id": r["user_id"],
+         "email": r["email"], "error": (r["error"] or "")[:120]}
+        for r in rows
+    ]
+    per_user: dict[int, int] = {}
+    for t in targets:
+        per_user[t["user_id"]] = per_user.get(t["user_id"], 0) + 1
+
+    refunded = 0
+    if not dry_run:
+        for t in targets:
+            if refund_usage_for_request(t["request_id"]):
+                refunded += 1
+
+    return {
+        "dry_run": dry_run,
+        "found": len(targets),
+        "refunded": refunded,
+        "per_user": [{"user_id": uid, "count": c} for uid, c in sorted(per_user.items())],
+        "targets": targets[:50],
     }

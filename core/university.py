@@ -199,6 +199,12 @@ def _set_error(request_id: str, error: str) -> None:
         db.commit()
     finally:
         db.close()
+    # 結果が出なかった調査は利用回数を消費させない
+    try:
+        from auth.deps import refund_usage_for_request
+        refund_usage_for_request(request_id)
+    except Exception:
+        pass  # 返却の失敗でエラー記録自体を壊さない
 
 
 # ── フラグ抽出（既存ロジックを維持） ────────────────────────────────────────

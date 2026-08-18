@@ -12,7 +12,7 @@ from core.university import (
 )
 from auth.deps import (
     get_current_user, require_user, get_active_plan,
-    check_quota, log_usage,
+    check_quota, log_usage, refund_usage_for_request,
 )
 
 router = APIRouter(prefix="/api", tags=["research"])
@@ -98,6 +98,8 @@ async def cancel_research(request_id: str, request: Request):
         db.commit()
     finally:
         db.close()
+    # キャンセルも結果が出ないので利用回数を返す
+    refund_usage_for_request(request_id)
     return {"cancelled": True, "status": "error"}
 
 

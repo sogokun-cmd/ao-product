@@ -160,8 +160,9 @@ def log_usage(user_id: int, action: str, ref_id: str | None = None, meta: dict |
                 _use_credit = int(_row["c"]) >= _quota
             finally:
                 _db.close()
-        if _use_credit:
-            deduct_credit(user_id)
+        if _use_credit and deduct_credit(user_id):
+            # 失敗時にクレジットを返却できるよう、消費元を記録しておく
+            meta = {**(meta or {}), "credit_used": True}
 
     from database import get_db
     db = get_db()
@@ -171,6 +172,39 @@ def log_usage(user_id: int, action: str, ref_id: str | None = None, meta: dict |
             (user_id, action, ref_id, json.dumps(meta or {}, ensure_ascii=False)),
         )
         db.commit()
+    finally:
+        db.close()
+
+
+def refund_usage_for_request(request_id: str) -> bool:
+    """エラーで終わった調査の利用回数を返却する。
+
+    usage_logs の該当行を削除し、クレジットで消費していた場合は残高も戻す。
+    冪等 — すでに返却済み（行がない）なら何もせず False。
+    """
+    if not request_id:
+        return False
+    from database import get_db
+    db = get_db()
+    try:
+        row = db.execute(
+            "SELECT user_id, meta_json FROM usage_logs WHERE action='research' AND ref_id=?",
+            (request_id,),
+        ).fetchone()
+        if not row:
+            return False
+        try:
+            meta = json.loads(row["meta_json"] or "{}")
+        except (ValueError, TypeError):
+            meta = {}
+        db.execute("DELETE FROM usage_logs WHERE action='research' AND ref_id=?", (request_id,))
+        if meta.get("credit_used"):
+            db.execute(
+                "UPDATE users SET credit_balance = credit_balance + 1 WHERE id=?",
+                (row["user_id"],),
+            )
+        db.commit()
+        return True
     finally:
         db.close()
 
