@@ -4266,7 +4266,9 @@ researchmap / KAKEN / 大学公式の研究ディレクトリが収集データ�
 - 特に以下の項目は非公式サイトに記載が多いので必ず references を確認: 倍率（ratio_history）/ 志願者数・合格者数（applicants_history, accepted_history）/ 募集人員（quota_history）/ 評定条件（gpa_requirement）/ 英語資格（external_exam_requirements）/ 選考方法（selection_phase_1/2）"""
 
         with console.status(f"[yellow]  {_fac_name} 学科情報抽出中...[/yellow]"):
-            _raw_c = analyze_with_claude(client, _system_c, _user_c, max_tokens=16000, model=MODEL_DEEP)
+            # 実測の平均出力は約7,000トークン。16,000は過大なので上限を絞る
+            # （出力単価が最も高い箇所であり、暴走時のコストと所要時間を抑える）
+            _raw_c = analyze_with_claude(client, _system_c, _user_c, max_tokens=10000, model=MODEL_DEEP)
 
         _step_c_fac = _parse_json_robust(_raw_c)
         _step_c_fac = _filter_general_exam_entries(_step_c_fac)

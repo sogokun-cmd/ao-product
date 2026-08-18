@@ -9,6 +9,22 @@ LLM プロバイダ別単価表とコスト計算。
 # Google:    https://ai.google.dev/gemini-api/docs/pricing
 PRICING: dict[str, dict[str, dict[str, float]]] = {
     "anthropic": {
+        "claude-opus-5": {
+            "input":        5.00,
+            "output":      25.00,
+            "cached_input": 0.50,
+        },
+        "claude-sonnet-5": {
+            # 2026-08-31 までは導入価格 $2.00/$10.00。過小計上を避け定価で計上する
+            "input":        3.00,
+            "output":      15.00,
+            "cached_input": 0.30,
+        },
+        "claude-haiku-4-5": {
+            "input":        1.00,
+            "output":       5.00,
+            "cached_input": 0.10,
+        },
         "claude-opus-4-8": {
             "input":        5.00,
             "output":      25.00,

@@ -34,67 +34,70 @@ def set_llm_context(user_id: int, request_id: str | None = None) -> None:
 # ── タスク → 候補 (provider, model) リスト ───────────────────────────────────
 # 上から順に試す。先頭が「使える」プロバイダで成功すれば返す。
 TASK_ROUTES: dict[str, list[tuple[str, str]]] = {
-    # 一次情報からの構造化抽出（最重要 / 高品質モデル中心）
+    # 一次情報からの構造化抽出（最重要 / 最高品質）
     "extraction": [
-        ("anthropic", "claude-opus-4-8"),
+        ("anthropic", "claude-opus-5"),
         ("openai",    "gpt-5.5"),
         ("google",    "gemini-3.1-pro-preview"),
-        ("anthropic", "claude-sonnet-4-6"),
+        ("anthropic", "claude-sonnet-5"),
     ],
     # 過去問の出題傾向分析（断定回避が必要 → 高品質モデル）
     "analysis": [
-        ("anthropic", "claude-opus-4-8"),
+        ("anthropic", "claude-opus-5"),
         ("openai",    "gpt-5.5"),
         ("google",    "gemini-3.1-pro-preview"),
-        ("anthropic", "claude-sonnet-4-6"),
+        ("anthropic", "claude-sonnet-5"),
     ],
     # 類題作成（創造性が要るが暴走させない）
     "practice_generation": [
-        ("anthropic", "claude-opus-4-8"),
+        ("anthropic", "claude-opus-5"),
         ("openai",    "gpt-5.5"),
-        ("anthropic", "claude-sonnet-4-6"),
+        ("anthropic", "claude-sonnet-5"),
         ("google",    "gemini-3.1-pro-preview"),
     ],
     # 指導用メモ（Markdown 出力）
     "notes_generation": [
-        ("anthropic", "claude-opus-4-8"),
-        ("openai",    "gpt-5.5"),
+        ("anthropic", "claude-sonnet-5"),
+        ("openai",    "gpt-5.4"),
         ("google",    "gemini-3.1-pro-preview"),
     ],
     # 要約（軽量モデル可）
     "summarization": [
-        ("anthropic", "claude-sonnet-4-6"),
-        ("openai",    "gpt-5.4-mini"),
         ("google",    "gemini-3.5-flash"),
-        ("anthropic", "claude-haiku-4-5-20251001"),
+        ("openai",    "gpt-5.4-mini"),
+        ("anthropic", "claude-haiku-4-5"),
+        ("anthropic", "claude-sonnet-5"),
     ],
     # 矛盾検証（複数結果の比較）
     "verification": [
-        ("anthropic", "claude-opus-4-8"),
-        ("openai",    "gpt-5.5"),
+        ("anthropic", "claude-sonnet-5"),
+        ("openai",    "gpt-5.4"),
         ("google",    "gemini-3.1-pro-preview"),
     ],
     # 事実検証（抽出結果を原文と照合）
     # → プライマリ抽出と別系統モデルで独立チェックするため Anthropic を除外
     "fact_verification": [
-        ("openai", "gpt-5.5"),
+        ("openai", "gpt-5.4"),
         ("google", "gemini-3.1-pro-preview"),
     ],
 
     # ── リサーチ Step 別ルート ──────────────────────────────────
-    # Step A/B: 大学・学部の概要抽出（高速モデル優先、品質は十分）
+    # Step A/B: 大学・学部の概要抽出。
+    # 入力が支配的（実測: 1コール約39,000入力 / 1,400出力）なので、
+    # 入力単価の安い最新世代を先頭に置く。品質は概要抽出には十分。
     "step_ab": [
-        ("openai",    "gpt-5.5"),
-        ("anthropic", "claude-sonnet-4-6"),
         ("google",    "gemini-3.5-flash"),
-        ("google",    "gemini-3.1-pro-preview"),
-        ("anthropic", "claude-haiku-4-5-20251001"),
+        ("openai",    "gpt-5.4-mini"),
+        ("anthropic", "claude-haiku-4-5"),
+        ("anthropic", "claude-sonnet-5"),
+        ("openai",    "gpt-5.5"),
     ],
-    # Step C: 学科詳細抽出（最高品質、解像度最大）
+    # Step C: 学科詳細抽出（最高品質、解像度最大）。ここは品質優先で最上位。
     "step_c": [
-        ("anthropic", "claude-opus-4-8"),
+        ("anthropic", "claude-opus-5"),
         ("openai",    "gpt-5.5"),
         ("google",    "gemini-3.1-pro-preview"),
+        ("anthropic", "claude-sonnet-5"),
     ],
 }
 

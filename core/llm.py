@@ -10,11 +10,17 @@ UI上ではモデル名を主役にしない方針。価値は「高品質な一
 from __future__ import annotations
 
 import os
+import re
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 _CLIENT_TIMEOUT = int(os.environ.get("LLM_CLIENT_TIMEOUT_SEC", "120"))
+
+# temperature を受け付けない Anthropic モデル（4.7 以降の世代）
+_ANTHROPIC_NO_TEMPERATURE = re.compile(
+    r"^claude-(opus-4-[78]|opus-5|sonnet-5|fable-5|mythos-5)"
+)
 
 
 def _is_unsupported_param_error(exc: Exception, param: str) -> bool:
@@ -97,17 +103,26 @@ class AnthropicProvider(LLMProvider):
             }]
         else:
             system_blocks = system
-        # claude-opus-4-x 以降は temperature が廃止
-        _no_temp = model.startswith("claude-opus-4")
         create_kwargs = dict(
             model=model,
             max_tokens=max_tokens,
             system=system_blocks,
             messages=[{"role": "user", "content": user}],
         )
-        if not _no_temp:
+        # 新しい世代（opus-4-7/4-8, opus-5, sonnet-5, fable-5 など）は temperature が廃止。
+        # モデル名の前方一致だけに頼ると新モデル追加のたびに壊れるので、
+        # 拒否されたら落として再試行する形にしておく。
+        if not _ANTHROPIC_NO_TEMPERATURE.match(model):
             create_kwargs["temperature"] = temperature
-        resp = client.messages.create(**create_kwargs)
+        while True:
+            try:
+                resp = client.messages.create(**create_kwargs)
+                break
+            except Exception as e:
+                if "temperature" in create_kwargs and _is_unsupported_param_error(e, "temperature"):
+                    create_kwargs.pop("temperature")
+                    continue
+                raise
         text = "".join(getattr(b, "text", "") for b in resp.content)
         usage = None
         if hasattr(resp, "usage"):
