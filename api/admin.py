@@ -160,6 +160,57 @@ def refund_errored_usage(request: Request, dry_run: bool = True):
     }
 
 
+@router.get("/affected-users")
+def affected_users(request: Request, since: str = "2026-08-01"):
+    """障害の影響を受けたユーザー一覧（連絡先の洗い出し用）。
+
+    `since` 以降にリサーチが error で終わったユーザーと、
+    同期間に登録したのに成功リサーチが1件もないユーザーを返す。
+    """
+    _check_token(request)
+    from database import get_db
+    db = get_db()
+    try:
+        errored = db.execute("""
+            SELECT u.id, u.name, u.email, u.created_at AS signed_up,
+                   COUNT(*) AS errors,
+                   MAX(rr.created_at) AS last_error_at,
+                   SUM(CASE WHEN rr.status='done' THEN 1 ELSE 0 END) AS dummy
+            FROM research_requests rr
+            JOIN users u ON u.id = rr.user_id
+            WHERE rr.status = 'error' AND rr.created_at >= ?
+            GROUP BY u.id ORDER BY errors DESC
+        """, (since,)).fetchall()
+
+        never_succeeded = db.execute("""
+            SELECT u.id, u.name, u.email, u.created_at AS signed_up,
+                   (SELECT COUNT(*) FROM research_requests r2
+                     WHERE r2.user_id = u.id) AS attempts
+            FROM users u
+            WHERE u.created_at >= ?
+              AND NOT EXISTS (SELECT 1 FROM research_requests r3
+                               WHERE r3.user_id = u.id AND r3.status = 'done')
+            ORDER BY u.created_at DESC
+        """, (since,)).fetchall()
+    finally:
+        db.close()
+
+    return {
+        "since": since,
+        "errored": [
+            {"user_id": r["id"], "name": r["name"], "email": r["email"],
+             "signed_up": r["signed_up"], "errors": r["errors"],
+             "last_error_at": r["last_error_at"]}
+            for r in errored
+        ],
+        "signed_up_but_no_success": [
+            {"user_id": r["id"], "name": r["name"], "email": r["email"],
+             "signed_up": r["signed_up"], "attempts": r["attempts"]}
+            for r in never_succeeded
+        ],
+    }
+
+
 @router.get("/costs")
 def get_costs(request: Request):
     """LLM API のコスト集計 — 収支を見るため。
