@@ -160,6 +160,77 @@ def refund_errored_usage(request: Request, dry_run: bool = True):
     }
 
 
+@router.get("/costs")
+def get_costs(request: Request):
+    """LLM API のコスト集計 — 収支を見るため。
+
+    api_usage_log は llm_router 経由の呼び出しのみ記録される点に注意
+    （ao_research.py が Anthropic を直接叩く経路は計上されない）。
+    """
+    _check_token(request)
+    from database import get_db
+    db = get_db()
+    try:
+        totals = db.execute("""
+            SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd), 0) AS cost,
+                   MIN(created_at) AS since
+            FROM api_usage_log
+        """).fetchone()
+        by_period = {}
+        for label, days in (("last_24h", 1), ("last_7d", 7), ("last_30d", 30)):
+            r = db.execute(
+                "SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd),0) AS cost "
+                f"FROM api_usage_log WHERE created_at >= datetime('now','-{days} day')"
+            ).fetchone()
+            by_period[label] = {"calls": r["calls"], "cost_usd": round(r["cost"], 4)}
+        by_provider = db.execute("""
+            SELECT provider, model, COUNT(*) AS calls, COALESCE(SUM(cost_usd),0) AS cost
+            FROM api_usage_log GROUP BY provider, model ORDER BY cost DESC
+        """).fetchall()
+        by_task = db.execute("""
+            SELECT task, COUNT(*) AS calls, COALESCE(SUM(cost_usd),0) AS cost
+            FROM api_usage_log GROUP BY task ORDER BY cost DESC
+        """).fetchall()
+        # 完了したリサーチ1件あたりのコスト
+        per_research = db.execute("""
+            SELECT COUNT(DISTINCT aul.request_id) AS researches,
+                   COALESCE(SUM(aul.cost_usd), 0) AS cost
+            FROM api_usage_log aul
+            JOIN research_requests rr ON rr.id = aul.request_id
+            WHERE rr.status = 'done'
+        """).fetchone()
+        wasted = db.execute("""
+            SELECT COALESCE(SUM(aul.cost_usd), 0) AS cost
+            FROM api_usage_log aul
+            JOIN research_requests rr ON rr.id = aul.request_id
+            WHERE rr.status = 'error'
+        """).fetchone()
+    finally:
+        db.close()
+
+    done_n = per_research["researches"] or 0
+    return {
+        "total": {"calls": totals["calls"], "cost_usd": round(totals["cost"], 4),
+                  "logging_since": totals["since"]},
+        "by_period": by_period,
+        "by_provider": [
+            {"provider": r["provider"], "model": r["model"],
+             "calls": r["calls"], "cost_usd": round(r["cost"], 4)}
+            for r in by_provider
+        ],
+        "by_task": [
+            {"task": r["task"], "calls": r["calls"], "cost_usd": round(r["cost"], 4)}
+            for r in by_task
+        ],
+        "per_done_research": {
+            "researches": done_n,
+            "cost_usd": round(per_research["cost"], 4),
+            "avg_cost_usd": round(per_research["cost"] / done_n, 4) if done_n else None,
+        },
+        "wasted_on_errors_usd": round(wasted["cost"], 4),
+    }
+
+
 @router.get("/subscribers")
 def list_subscribers(request: Request):
     """有料プランの契約者一覧（誰が課金しているかの確認用）。"""
