@@ -158,3 +158,40 @@ def refund_errored_usage(request: Request, dry_run: bool = True):
         "per_user": [{"user_id": uid, "count": c} for uid, c in sorted(per_user.items())],
         "targets": targets[:50],
     }
+
+
+@router.get("/subscribers")
+def list_subscribers(request: Request):
+    """有料プランの契約者一覧（誰が課金しているかの確認用）。"""
+    _check_token(request)
+    from database import get_db
+    db = get_db()
+    try:
+        rows = db.execute("""
+            SELECT u.id, u.name, u.email, u.created_at AS signed_up,
+                   s.plan_code, s.status, s.created_at AS subscribed_at,
+                   s.period_end, s.stripe_subscription_id,
+                   (SELECT COUNT(*) FROM usage_logs ul
+                     WHERE ul.user_id = u.id AND ul.action = 'research') AS research_count
+            FROM subscriptions s
+            JOIN users u ON u.id = s.user_id
+            WHERE s.plan_code != 'free'
+            ORDER BY s.created_at DESC
+        """).fetchall()
+    finally:
+        db.close()
+
+    return {
+        "count": len(rows),
+        "subscribers": [
+            {
+                "user_id": r["id"], "name": r["name"], "email": r["email"],
+                "plan": r["plan_code"], "status": r["status"],
+                "signed_up": r["signed_up"], "subscribed_at": r["subscribed_at"],
+                "period_end": r["period_end"],
+                "paid_via_stripe": bool(r["stripe_subscription_id"]),
+                "research_count": r["research_count"],
+            }
+            for r in rows
+        ],
+    }
