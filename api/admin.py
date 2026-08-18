@@ -160,6 +160,68 @@ def refund_errored_usage(request: Request, dry_run: bool = True):
     }
 
 
+@router.post("/send-outage-notice")
+def send_outage_notice_batch(
+    request: Request,
+    since: str = "2026-07-25",
+    dry_run: bool = True,
+    test_to: str | None = None,
+):
+    """障害のお詫び／復旧のお知らせを一括送信する。
+
+    - `dry_run=true`（既定）: 送信せず、宛先の一覧だけ返す。
+    - `test_to=<メール>`: その1件だけにテスト送信する（本送信はしない）。
+    - `dry_run=false`: 対象全員に本送信する。
+    エラーを踏んだ人と、踏んでいない人で文面を出し分ける。
+    """
+    _check_token(request)
+    from core.email import send_outage_notice
+    from database import get_db
+
+    db = get_db()
+    try:
+        rows = db.execute("""
+            SELECT u.id, u.name, u.email,
+                   (SELECT COUNT(*) FROM research_requests r
+                     WHERE r.user_id = u.id AND r.status='error' AND r.created_at >= ?) AS errors
+            FROM users u
+            WHERE u.created_at >= ?
+               OR EXISTS (SELECT 1 FROM research_requests r2
+                           WHERE r2.user_id = u.id AND r2.status='error' AND r2.created_at >= ?)
+            ORDER BY errors DESC, u.created_at DESC
+        """, (since, since, since)).fetchall()
+    finally:
+        db.close()
+
+    recipients = [
+        {"user_id": r["id"], "name": r["name"], "email": r["email"], "errors": r["errors"]}
+        for r in rows
+    ]
+
+    if test_to:
+        target = next((r for r in recipients if r["email"] == test_to), None)
+        sample = target or {"name": "テスト", "errors": 1}
+        ok = send_outage_notice(test_to, sample["name"], sample["errors"])
+        return {"mode": "test", "sent_to": test_to, "ok": ok,
+                "variant": "apology" if sample["errors"] > 0 else "notice",
+                "would_send_to": len(recipients)}
+
+    if dry_run:
+        return {"mode": "dry_run", "count": len(recipients), "recipients": recipients}
+
+    sent, failed = [], []
+    for r in recipients:
+        try:
+            if send_outage_notice(r["email"], r["name"], r["errors"]):
+                sent.append(r["email"])
+            else:
+                failed.append(r["email"])
+        except Exception as e:  # 1件の失敗で全体を止めない
+            failed.append(f"{r['email']}: {type(e).__name__}")
+    return {"mode": "sent", "sent": len(sent), "failed": len(failed),
+            "sent_to": sent, "failures": failed}
+
+
 @router.get("/affected-users")
 def affected_users(request: Request, since: str = "2026-08-01"):
     """障害の影響を受けたユーザー一覧（連絡先の洗い出し用）。

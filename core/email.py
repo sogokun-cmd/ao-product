@@ -80,3 +80,64 @@ def send_team_invite_email(email: str, token: str, team_name: str, inviter_name:
 
 def generate_verification_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+def send_outage_notice(email: str, name: str, errors: int) -> bool:
+    """障害のお詫び・復旧のお知らせ。errors=0 なら未体験ユーザー向けの文面。"""
+    name = _sanitize(name) or "ご利用者"
+    if errors > 0:
+        subject = "【お詫び】リサーチが失敗していた不具合について（復旧済み・回数は返却しました）"
+        lead = (
+            "<p>このたび、リサーチの実行が失敗する不具合が発生しており、"
+            "{n}様のリサーチも正常に完了しておりませんでした。"
+            "ご迷惑をおかけし、誠に申し訳ございません。</p>"
+        ).format(n=name)
+        quota = (
+            "<h3 style=\"color:#1a2b4a;font-size:1rem\">リサーチ回数について</h3>"
+            "<p>失敗した分の利用回数は、すべてお戻ししました。"
+            "ご確認いただかなくても、すでに残高に反映されています。"
+            "今後も、エラーで結果が出なかった場合は回数を消費しない仕様に変更しました。</p>"
+        )
+        closing = (
+            "<p>総合型選抜の出願が本格化する時期に、貴重なお時間を無駄にさせてしまいました。"
+            "改めてお試しいただけますと幸いです。</p>"
+        )
+    else:
+        subject = "【AOリサーチ】不具合の修正が完了しました（ご利用可能です）"
+        lead = (
+            "<p>{n}様にご登録いただいたあと、リサーチの実行が失敗する不具合が発生しておりました。"
+            "{n}様が影響を受けられたかは分かりかねますが、"
+            "もしお試しの際にうまく動かなかったようでしたら、それが原因です。</p>"
+        ).format(n=name)
+        quota = (
+            "<h3 style=\"color:#1a2b4a;font-size:1rem\">リサーチ回数について</h3>"
+            "<p>エラーで結果が出なかった場合は回数を消費しない仕様に変更しました。"
+            "失敗しても無料枠が減ることはありません。</p>"
+        )
+        closing = (
+            "<p>総合型選抜の出願が本格化する時期です。"
+            "まだお使いでなければ、ぜひ一度お試しください。</p>"
+        )
+
+    html = """
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;line-height:1.7">
+      <h2 style="color:#1a2b4a">AOリサーチ</h2>
+      <p>{name} 様</p>
+      <p>AOリサーチをご利用いただきありがとうございます。運営の奥山です。</p>
+      {lead}
+      <h3 style="color:#1a2b4a;font-size:1rem">不具合の内容</h3>
+      <p>8月上旬に行ったシステム更新に不備があり、リサーチの処理が途中で停止する状態になっておりました。
+         8月18日に原因を特定し、修正を完了しています。現在は正常に動作することを確認済みです。</p>
+      {quota}
+      {closing}
+      <a href="{base}/app/research"
+         style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;
+                border-radius:6px;text-decoration:none;font-weight:bold;margin:16px 0">
+        リサーチを試す
+      </a>
+      <p>もし出願締切が迫っているなど、お急ぎの事情がございましたら、
+         このメールにご返信ください。個別に対応いたします。</p>
+      <p style="margin-top:24px">AOリサーチ<br>奥山 樹生</p>
+    </div>
+    """.format(name=name, lead=lead, quota=quota, closing=closing, base=BASE_URL)
+    return _send(email, subject, html)
