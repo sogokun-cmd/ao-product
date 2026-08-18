@@ -17,6 +17,21 @@ from dataclasses import dataclass
 _CLIENT_TIMEOUT = int(os.environ.get("LLM_CLIENT_TIMEOUT_SEC", "120"))
 
 
+def _is_unsupported_param_error(exc: Exception, param: str) -> bool:
+    """「そのパラメータはこのモデルでは使えない」旨の 400 かどうかを判定する。
+    パラメータ名に言及する invalid_request_error のみ True。それ以外は False（＝再送しない）。"""
+    if getattr(exc, "status_code", None) not in (400, None):
+        return False
+    msg = str(exc)
+    if param not in msg:
+        return False
+    lowered = msg.lower()
+    return any(
+        marker in lowered
+        for marker in ("invalid_request_error", "unsupported_parameter", "unsupported_value")
+    )
+
+
 @dataclass
 class LLMResponse:
     text: str
@@ -137,15 +152,26 @@ class OpenAIProvider(LLMProvider):
 
     def complete(self, system, user, model, max_tokens=2000, temperature=0.2, use_cache: bool = True) -> LLMResponse:
         client = self._get_client()
-        resp = client.chat.completions.create(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user",   "content": user},
-            ],
-        )
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user",   "content": user},
+        ]
+        kwargs = {"max_completion_tokens": max_tokens, "temperature": temperature}
+        while True:
+            try:
+                resp = client.chat.completions.create(model=model, messages=messages, **kwargs)
+                break
+            except Exception as e:
+                # 新しいモデル（gpt-5.5 等）は max_tokens を廃止し max_completion_tokens を要求する。
+                # 逆に古いモデルは max_completion_tokens を知らないので、その場合だけ入れ替える。
+                if "max_completion_tokens" in kwargs and _is_unsupported_param_error(e, "max_completion_tokens"):
+                    kwargs["max_tokens"] = kwargs.pop("max_completion_tokens")
+                    continue
+                # 新しいモデルは temperature の変更を受け付けない（既定値の 1 のみ）。
+                if "temperature" in kwargs and _is_unsupported_param_error(e, "temperature"):
+                    kwargs.pop("temperature")
+                    continue
+                raise
         text = (resp.choices[0].message.content or "") if resp.choices else ""
         usage = None
         if hasattr(resp, "usage") and resp.usage:
@@ -176,7 +202,8 @@ class GoogleProvider(LLMProvider):
                     from google import genai
                     self._client = genai.Client(
                         api_key=self._api_key(),
-                        http_options={"timeout": _CLIENT_TIMEOUT},
+                        # google-genai の HttpOptions.timeout はミリ秒指定
+                        http_options={"timeout": _CLIENT_TIMEOUT * 1000},
                     )
         return self._client
 
